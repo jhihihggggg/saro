@@ -2,7 +2,7 @@
 SMS Management Routes
 SMS sending, template management, and notification system
 """
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, session
 from models import db, SmsLog, User, Batch, UserRole, SmsStatus, user_batches
 from utils.auth import login_required, require_role, get_current_user
 from utils.response import success_response, error_response, paginated_response
@@ -13,6 +13,74 @@ import os
 import re
 
 sms_bp = Blueprint('sms', __name__)
+
+BASE_SMS_TEMPLATES = [
+    {
+        'id': 'attendance_present',
+        'name': 'Attendance - Present',
+        'category': 'attendance',
+        'default_message': 'Dear Parent, {student_name} was PRESENT today in {batch_name} on {date}. Keep up the good work!',
+        'variables': ['student_name', 'batch_name', 'date'],
+        'editable': True
+    },
+    {
+        'id': 'attendance_absent',
+        'name': 'Attendance - Absent',
+        'category': 'attendance',
+        'default_message': 'Dear Parent, {student_name} was ABSENT today in {batch_name} on {date}. Please ensure regular attendance.',
+        'variables': ['student_name', 'batch_name', 'date'],
+        'editable': True
+    },
+    {
+        'id': 'exam_result',
+        'name': 'Exam Result',
+        'category': 'exam',
+        'default_message': 'Dear Parent, {student_name} scored {marks}/{total} marks in {subject} exam on {date}. Total marks: {marks}/{total}',
+        'variables': ['student_name', 'subject', 'marks', 'total', 'date'],
+        'editable': True
+    }
+]
+
+
+def build_template_payload(template_def, override_message=None):
+    """Create template payload with character count, applying overrides if provided."""
+    message = override_message if override_message is not None else template_def['default_message']
+    return {
+        'id': template_def['id'],
+        'name': template_def['name'],
+        'category': template_def.get('category'),
+        'variables': template_def.get('variables', []),
+        'editable': template_def.get('editable', True),
+        'message': message,
+        'char_count': count_sms_characters(message)
+    }
+
+
+def get_template_definition(template_id):
+    """Fetch static template definition by ID."""
+    for template_def in BASE_SMS_TEMPLATES:
+        if template_def['id'] == template_id:
+            return template_def
+    return None
+
+
+def get_template_payload(template_id):
+    """Return template payload with custom overrides applied."""
+    template_def = get_template_definition(template_id)
+    if not template_def:
+        return None
+    custom_templates = session.get('custom_templates', {})
+    override = custom_templates.get(template_id)
+    return build_template_payload(template_def, override)
+
+
+def get_all_templates():
+    """Return all templates with session overrides applied."""
+    custom_templates = session.get('custom_templates', {})
+    return [
+        build_template_payload(template_def, custom_templates.get(template_def['id']))
+        for template_def in BASE_SMS_TEMPLATES
+    ]
 
 def count_sms_characters(text):
     """
@@ -447,40 +515,7 @@ def get_sms_logs():
 def get_sms_templates():
     """Get predefined SMS templates"""
     try:
-        from flask import session
-        custom_templates = session.get('custom_templates', {})
-        
-        templates = [
-            {
-                'id': 'attendance_present',
-                'name': 'Attendance - Present',
-                'category': 'attendance',
-                'message': custom_templates.get('attendance_present', 'Dear Parent, {student_name} was PRESENT today in {batch_name} on {date}. Keep up the good work!'),
-                'variables': ['student_name', 'batch_name', 'date'],
-                'char_count': count_sms_characters(custom_templates.get('attendance_present', 'Dear Parent, {student_name} was PRESENT today in {batch_name} on {date}. Keep up the good work!')),
-                'editable': True
-            },
-            {
-                'id': 'attendance_absent',
-                'name': 'Attendance - Absent',
-                'category': 'attendance',
-                'message': custom_templates.get('attendance_absent', 'Dear Parent, {student_name} was ABSENT today in {batch_name} on {date}. Please ensure regular attendance.'),
-                'variables': ['student_name', 'batch_name', 'date'],
-                'char_count': count_sms_characters(custom_templates.get('attendance_absent', 'Dear Parent, {student_name} was ABSENT today in {batch_name} on {date}. Please ensure regular attendance.')),
-                'editable': True
-            },
-            {
-                'id': 'exam_result',
-                'name': 'Exam Result',
-                'category': 'exam',
-                'message': custom_templates.get('exam_result', 'Dear Parent, {student_name} scored {marks}/{total} marks in {subject} exam on {date}. Total marks: {marks}/{total}'),
-                'variables': ['student_name', 'subject', 'marks', 'total', 'date'],
-                'char_count': count_sms_characters(custom_templates.get('exam_result', 'Dear Parent, {student_name} scored {marks}/{total} marks in {subject} exam on {date}. Total marks: {marks}/{total}')),
-                'editable': True
-            }
-        ]
-        
-        return jsonify(templates)
+        return jsonify(get_all_templates())
         
     except Exception as e:
         return error_response(f'Failed to get SMS templates: {str(e)}', 500)
@@ -501,64 +536,18 @@ def update_sms_template(template_id):
         if char_count > 130:
             return error_response(f'Message exceeds 130 character limit ({char_count} chars)', 400)
         
-        # Get current templates
-        templates = [
-            {
-                'id': 'attendance_present',
-                'name': 'Attendance - Present',
-                'category': 'attendance',
-                'message': 'Dear Parent, {student_name} was PRESENT today in {batch_name} on {date}. Keep up the good work!',
-                'variables': ['student_name', 'batch_name', 'date'],
-                'char_count': 95,
-                'editable': True
-            },
-            {
-                'id': 'attendance_absent',
-                'name': 'Attendance - Absent',
-                'category': 'attendance',
-                'message': 'Dear Parent, {student_name} was ABSENT today in {batch_name} on {date}. Please ensure regular attendance.',
-                'variables': ['student_name', 'batch_name', 'date'],
-                'char_count': 108,
-                'editable': True
-            },
-            {
-                'id': 'exam_good',
-                'name': 'Exam - Good Performance',
-                'category': 'exam',
-                'message': 'Congratulations! {student_name} scored {marks}/{total} in {subject} exam on {date}. Excellent performance!',
-                'variables': ['student_name', 'subject', 'marks', 'total', 'date'],
-                'char_count': 102,
-                'editable': True
-            },
-            {
-                'id': 'exam_poor',
-                'name': 'Exam - Needs Improvement',
-                'category': 'exam',
-                'message': '{student_name} scored {marks}/{total} in {subject} on {date}. Please encourage more practice.',
-                'variables': ['student_name', 'subject', 'marks', 'total', 'date'],
-                'char_count': 91,
-                'editable': True
-            }
-        ]
-        
-        # Find and update the template
-        template = next((t for t in templates if t['id'] == template_id), None)
-        if not template:
+        template_def = get_template_definition(template_id)
+        if not template_def:
             return error_response('Template not found', 404)
         
-        # Update template message in session/database (for now, we'll use session)
-        from flask import session
-        if 'custom_templates' not in session:
-            session['custom_templates'] = {}
-        
-        session['custom_templates'][template_id] = new_message
+        custom_templates = session.get('custom_templates', {})
+        custom_templates[template_id] = new_message
+        session['custom_templates'] = custom_templates
         session.modified = True
-        
-        return success_response('Template updated successfully', {
-            'template_id': template_id,
-            'message': new_message,
-            'char_count': char_count
-        })
+
+        updated_template = build_template_payload(template_def, new_message)
+
+        return success_response('Template updated successfully', updated_template)
         
     except Exception as e:
         return error_response(f'Failed to update template: {str(e)}', 500)
@@ -607,49 +596,28 @@ def get_sms_balance():
     """Get current user's SMS balance"""
     try:
         current_user = get_current_user()
-        
-        # Get usage statistics
+
         total_sent = SmsLog.query.filter(
             SmsLog.sent_by == current_user.id,
             SmsLog.status == SmsStatus.SENT
         ).count()
-        
-        # Get monthly usage
+
         current_month = datetime.now().month
-        current_year = datetime.now().year
-        
-        monthly_sent = SmsLog.query.filter(
+        sent_this_month = SmsLog.query.filter(
             SmsLog.sent_by == current_user.id,
             SmsLog.status == SmsStatus.SENT,
-            extract('month', SmsLog.sent_at) == current_month,
-            extract('year', SmsLog.sent_at) == current_year
+            func.extract('month', SmsLog.sent_at) == current_month
         ).count()
-        
-        # Get recent activity
-        recent_activity = SmsLog.query.filter(
-            SmsLog.sent_by == current_user.id
-        ).order_by(SmsLog.created_at.desc()).limit(5).all()
-        
-        recent_logs = []
-        for log in recent_activity:
-            recent_logs.append({
-                'phone_number': log.phone_number,
-                'message': log.message[:50] + '...' if len(log.message) > 50 else log.message,
-                'status': log.status.value,
-                'sent_at': log.sent_at.isoformat() if log.sent_at else log.created_at.isoformat()
-            })
-        
-        balance_info = {
-            'current_balance': current_user.sms_count,
+
+        return success_response('SMS balance retrieved', {
+            'balance': current_user.sms_count or 0,
             'total_sent': total_sent,
-            'monthly_sent': monthly_sent,
-            'recent_activity': recent_logs
-        }
-        
-        return success_response('SMS balance retrieved', {'balance': balance_info})
-        
+            'sent_this_month': sent_this_month
+        })
+
     except Exception as e:
         return error_response(f'Failed to get SMS balance: {str(e)}', 500)
+
 
 @sms_bp.route('/balance/add', methods=['POST'])
 @login_required
@@ -658,40 +626,37 @@ def add_sms_balance():
     """Add SMS balance to a user (Super user only)"""
     try:
         data = request.get_json()
-        
-        if not data:
-            return error_response('Request data is required', 400)
-        
         user_id = data.get('user_id')
         amount = data.get('amount')
-        
-        if not user_id or not amount:
+
+        if not user_id or amount is None:
             return error_response('User ID and amount are required', 400)
-        
-        if not isinstance(amount, int) or amount <= 0:
+
+        try:
+            amount = int(amount)
+        except (TypeError, ValueError):
+            return error_response('Amount must be an integer', 400)
+
+        if amount <= 0:
             return error_response('Amount must be a positive integer', 400)
-        
-        # Validate user
+
         user = User.query.filter_by(id=user_id, is_active=True).first()
         if not user:
             return error_response('User not found', 404)
-        
+
         if user.role == UserRole.STUDENT:
             return error_response('Cannot add SMS balance to students', 400)
-        
-        # Add balance
-        user.sms_count += amount
+
+        user.sms_count = (user.sms_count or 0) + amount
         db.session.commit()
-        
-        result_data = {
+
+        return success_response('SMS balance updated successfully', {
             'user_id': user.id,
             'user_name': user.full_name,
-            'added_amount': amount,
-            'new_balance': user.sms_count
-        }
-        
-        return success_response(f'{amount} SMS credits added successfully', result_data)
-        
+            'new_balance': user.sms_count,
+            'added_amount': amount
+        })
+
     except Exception as e:
         db.session.rollback()
         return error_response(f'Failed to add SMS balance: {str(e)}', 500)
@@ -844,3 +809,172 @@ def get_sms_system_stats():
         
     except Exception as e:
         return error_response(f'Failed to get SMS system statistics: {str(e)}', 500)
+
+@sms_bp.route('/send-bulk', methods=['POST'])
+@login_required
+@require_role(UserRole.TEACHER, UserRole.SUPER_USER)
+def send_bulk_sms():
+    """Send SMS to multiple recipients (batch or individual students)"""
+    try:
+        current_user = get_current_user()
+        data = request.get_json()
+        
+        if not data:
+            return error_response('Request data is required', 400)
+        
+        template_id = data.get('template_id')
+        batch_id = data.get('batch_id')
+        recipient_type = data.get('recipient_type', 'all')  # 'all' or 'individual'
+        student_ids = data.get('student_ids', [])
+        use_custom_message = data.get('use_custom_message', False)
+        custom_message = (data.get('custom_message') or '').strip()
+
+        if not batch_id:
+            return error_response('Batch ID is required', 400)
+
+        if student_ids:
+            try:
+                student_ids = [int(s) for s in student_ids]
+            except (TypeError, ValueError):
+                return error_response('Invalid student IDs provided', 400)
+
+        if use_custom_message:
+            if not custom_message:
+                return error_response('Custom message is required', 400)
+            base_message = custom_message
+        else:
+            if not template_id:
+                return error_response('Template ID is required', 400)
+            template_payload = get_template_payload(template_id)
+            if not template_payload:
+                return error_response('SMS template not found', 404)
+            base_message = template_payload['message']
+
+        char_count = count_sms_characters(base_message)
+        if char_count > 130:
+            return error_response(f'Message exceeds 130 character limit ({char_count} chars)', 400)
+
+        # Get the batch and verify access
+        batch = Batch.query.get(batch_id)
+        if not batch:
+            return error_response('Batch not found', 404)
+
+        if current_user.role == UserRole.TEACHER and batch not in current_user.batches:
+            return error_response('You do not have access to this batch', 403)
+
+        # Determine recipients based on selection type
+        if recipient_type == 'all':
+            recipients = [student for student in batch.students if student.is_active]
+        elif recipient_type == 'individual':
+            if not student_ids:
+                return error_response('Student IDs are required for individual selection', 400)
+            recipients = [student for student in batch.students if student.is_active and student.id in student_ids]
+        else:
+            return error_response('Invalid recipient type. Use "all" or "individual"', 400)
+
+        if not recipients:
+            return error_response('No valid recipients found', 400)
+
+        valid_recipients = []
+        invalid_recipients = []
+        for student in recipients:
+            phone = validate_phone_number(student.phoneNumber or '')
+            if phone:
+                valid_recipients.append((student, phone))
+            else:
+                invalid_recipients.append(student.full_name)
+
+        if not valid_recipients:
+            return error_response('No recipients have valid phone numbers', 400)
+
+        total_sms_needed = len(valid_recipients)
+        if (current_user.sms_count or 0) < total_sms_needed:
+            return error_response(f'Insufficient SMS balance. Need {total_sms_needed}, have {current_user.sms_count or 0}', 400)
+
+        sent_count = 0
+        failed_count = 0
+        failed_recipients = []
+
+        for student, phone in valid_recipients:
+            try:
+                message_to_send = base_message
+                message_to_send = message_to_send.replace('{student_name}', (student.first_name or ''))
+                message_to_send = message_to_send.replace('{batch_name}', batch.name or '')
+                message_to_send = message_to_send.replace('{date}', datetime.now().strftime('%d/%m/%Y'))
+                message_to_send = message_to_send.replace('{total}', str(getattr(student, 'total_marks', '')))
+                message_to_send = message_to_send.replace('{marks}', str(getattr(student, 'obtained_marks', '')))
+                message_to_send = message_to_send.replace('{subject}', getattr(student, 'subject', ''))
+
+                sms_response = send_sms_via_api(phone, message_to_send)
+
+                if sms_response.get('success'):
+                    sms_log = SmsLog(
+                        user_id=student.id,
+                        phone_number=phone,
+                        message=message_to_send,
+                        status=SmsStatus.SENT,
+                        api_response=sms_response,
+                        sent_by=current_user.id,
+                        cost=1,
+                        sent_at=datetime.utcnow()
+                    )
+                    db.session.add(sms_log)
+                    current_user.sms_count = (current_user.sms_count or 0) - 1
+                    sent_count += 1
+                else:
+                    sms_log = SmsLog(
+                        user_id=student.id,
+                        phone_number=phone,
+                        message=message_to_send,
+                        status=SmsStatus.FAILED,
+                        api_response=sms_response,
+                        sent_by=current_user.id,
+                        cost=0,
+                        sent_at=datetime.utcnow()
+                    )
+                    db.session.add(sms_log)
+                    failed_count += 1
+                    failed_recipients.append(student.full_name)
+
+            except Exception as e:
+                sms_log = SmsLog(
+                    user_id=student.id,
+                    phone_number=phone,
+                    message=base_message,
+                    status=SmsStatus.FAILED,
+                    api_response={'error': str(e)},
+                    sent_by=current_user.id,
+                    cost=0,
+                    sent_at=datetime.utcnow()
+                )
+                db.session.add(sms_log)
+                failed_count += 1
+                failed_recipients.append(student.full_name)
+
+        if invalid_recipients:
+            failed_recipients.extend([f'{name} (invalid phone)' for name in invalid_recipients])
+
+        db.session.commit()
+
+        response_data = {
+            'sent': sent_count,
+            'failed': failed_count,
+            'total_recipients': len(valid_recipients),
+            'remaining_balance': current_user.sms_count or 0,
+            'failed_recipients': failed_recipients or None,
+            'invalid_contacts': invalid_recipients or None,
+            'used_custom_message': use_custom_message
+        }
+
+        if sent_count > 0 and failed_count == 0:
+            message_text = f'Successfully sent SMS to all {sent_count} recipients'
+        elif sent_count > 0 and failed_count > 0:
+            message_text = f'Sent SMS to {sent_count} recipients, {failed_count} failed'
+        else:
+            message_text = f'Failed to send SMS to all {failed_count} recipients'
+
+        return success_response(message_text, response_data)
+        
+    except Exception as e:
+        db.session.rollback()
+        return error_response(f'Failed to send bulk SMS: {str(e)}', 500)

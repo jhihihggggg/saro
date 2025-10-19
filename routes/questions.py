@@ -7,7 +7,10 @@ from models import db, Question, Exam, QuestionType, UserRole
 from utils.auth import login_required, require_role, get_current_user
 from utils.response import success_response, error_response, serialize_question
 from datetime import datetime
-import google.generativeai as genai
+try:
+    import google.generativeai as genai
+except ImportError:
+    import mock_google_genai as genai
 import json
 import re
 import os

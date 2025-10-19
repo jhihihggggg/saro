@@ -53,7 +53,8 @@ def get_attendance():
             except ValueError:
                 return error_response('Invalid end_date format. Use YYYY-MM-DD', 400)
         
-        query = query.join(User).join(Batch)
+        # Join with User and Batch tables for filtering
+        query = query.join(User, Attendance.user_id == User.id).join(Batch, Attendance.batch_id == Batch.id)
         records = query.order_by(Attendance.date.desc()).all()
         
         attendance_records = []
@@ -244,6 +245,182 @@ def bulk_mark_attendance():
         }
         
         return success_response('Attendance marked successfully', response_data)
+        
+    except Exception as e:
+        db.session.rollback()
+        return error_response(f'Failed to mark attendance: {str(e)}', 500)
+
+@attendance_bp.route('/bulk-absent-sms', methods=['POST'])
+@login_required
+@require_role(UserRole.TEACHER, UserRole.SUPER_USER)
+def bulk_mark_attendance_send_absent_sms():
+    """Mark attendance and send SMS only to absent students"""
+    try:
+        data = request.get_json()
+        batch_id = data.get('batchId')
+        attendance_date_str = data.get('date')
+        attendance_data = data.get('attendanceData', [])
+        
+        if not batch_id or not attendance_date_str:
+            return error_response('Batch ID and date are required', 400)
+        
+        attendance_date = datetime.strptime(attendance_date_str, '%Y-%m-%d').date()
+        current_user = get_current_user()
+        
+        # Get batch information
+        batch = Batch.query.get(batch_id)
+        if not batch:
+            return error_response('Batch not found', 404)
+        
+        attendance_updates = []
+        absent_students = []
+        
+        # Process all attendance data
+        for student_attendance in attendance_data:
+            user_id = student_attendance.get('userId')
+            status = student_attendance.get('status', 'present')
+            
+            if not user_id:
+                continue
+                
+            # Validate user is in the batch
+            user = User.query.get(user_id)
+            if not user or batch not in user.batches:
+                continue
+            
+            existing = Attendance.query.filter_by(
+                user_id=user_id,
+                batch_id=batch_id,
+                date=attendance_date
+            ).first()
+            
+            if existing:
+                existing.status = AttendanceStatus(status)
+                existing.marked_by = current_user.id
+                existing.updated_at = datetime.utcnow()
+                attendance_updates.append({
+                    'student': user,
+                    'status': status,
+                    'action': 'updated'
+                })
+            else:
+                new_attendance = Attendance(
+                    user_id=user_id,
+                    batch_id=batch_id,
+                    date=attendance_date,
+                    status=AttendanceStatus(status),
+                    marked_by=current_user.id,
+                    created_at=datetime.utcnow()
+                )
+                db.session.add(new_attendance)
+                attendance_updates.append({
+                    'student': user,
+                    'status': status,
+                    'action': 'created'
+                })
+            
+            # Collect absent students
+            if status.lower() == 'absent':
+                absent_students.append(user)
+        
+        db.session.commit()
+        
+        # Send SMS only to absent students
+        sms_sent = 0
+        sms_failed = 0
+        
+        if absent_students:
+            # Check teacher's SMS balance
+            required_sms = len(absent_students) * 2  # Assuming 2 SMS per student (guardian + student)
+            if current_user.sms_count is None or current_user.sms_count <= 0:
+                return error_response('Insufficient SMS balance. Please contact admin to add credits.', 400)
+            
+            # Import SMS sending function
+            from routes.sms import send_sms_via_api
+            from models import SmsLog, SmsStatus
+            
+            for student in absent_students:
+                # Get absent message template
+                from flask import session
+                custom_templates = session.get('custom_templates', {})
+                template = custom_templates.get(
+                    'attendance_absent', 
+                    'Dear Parent, {student_name} was ABSENT today in {batch_name} on {date}. Please ensure regular attendance.'
+                )
+                
+                # Replace template variables with actual data
+                message = template.format(
+                    student_name=student.full_name,
+                    batch_name=batch.name,
+                    date=attendance_date.strftime('%d/%m/%Y')
+                )
+                
+                # Collect phone numbers to send SMS
+                phone_numbers = []
+                
+                # Add guardian/parent phone number if exists
+                if hasattr(student, 'guardian_phone') and student.guardian_phone:
+                    phone_numbers.append(student.guardian_phone)
+                
+                # Add student's own phone number
+                if student.phone:
+                    phone_numbers.append(student.phone)
+                
+                # Remove duplicates
+                phone_numbers = list(set(phone_numbers))
+                
+                # Send SMS to each phone number
+                for phone in phone_numbers:
+                    if not phone:
+                        continue
+                    
+                    # Check if teacher still has SMS balance
+                    if current_user.sms_count <= 0:
+                        sms_failed += 1
+                        break
+                    
+                    try:
+                        # Send SMS
+                        result = send_sms_via_api(phone, message)
+                        
+                        # Create SMS log
+                        sms_log = SmsLog(
+                            user_id=student.id,
+                            phone_number=phone,
+                            message=message,
+                            status=SmsStatus.SENT if result.get('success') else SmsStatus.FAILED,
+                            sent_by=current_user.id,
+                            api_response=result,
+                            cost=1,
+                            sent_at=datetime.utcnow() if result.get('success') else None
+                        )
+                        db.session.add(sms_log)
+                        
+                        if result.get('success'):
+                            sms_sent += 1
+                            # Deduct 1 SMS from teacher's balance
+                            current_user.sms_count -= 1
+                        else:
+                            sms_failed += 1
+                            
+                    except Exception as sms_error:
+                        print(f"Failed to send SMS to {phone}: {sms_error}")
+                        sms_failed += 1
+            
+            # Commit SMS logs and balance update
+            db.session.commit()
+        
+        response_data = {
+            'attendance_marked': len(attendance_updates),
+            'absent_count': len(absent_students),
+            'sms_sent': sms_sent,
+            'sms_failed': sms_failed,
+            'sms_balance': current_user.sms_count,
+            'date': attendance_date.isoformat(),
+            'batch_name': batch.name
+        }
+        
+        return success_response('Attendance marked and SMS sent to absent students', response_data)
         
     except Exception as e:
         db.session.rollback()

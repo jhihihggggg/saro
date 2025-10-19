@@ -210,7 +210,10 @@ def get_full_curriculum():
 def ai_health():
     """Check AI service health"""
     try:
-        import google.generativeai as genai
+        try:
+            import google.generativeai as genai
+        except ImportError:
+            import mock_google_genai as genai
         import os
         
         # Test API key configuration

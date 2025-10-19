@@ -4,7 +4,7 @@ Ranking, GPA calculation, merit lists, and performance analytics
 """
 from flask import Blueprint, request, jsonify
 from models import (db, MonthlyExam, IndividualExam, MonthlyMark, Batch, User, 
-                   UserRole, Settings, SmsLog, SmsStatus, Attendance, AttendanceStatus)
+                   UserRole, Settings, SmsLog, SmsStatus, Attendance, AttendanceStatus, MonthlyRanking)
 from utils.auth import login_required, require_role, get_current_user
 from utils.response import success_response, error_response
 from services.sms_service import send_bulk_notification
@@ -106,8 +106,10 @@ def create_monthly_exam():
     """Create a new monthly exam"""
     try:
         data = request.get_json()
+        logger.info(f"Creating monthly exam with data: {data}")
         
         if not data:
+            logger.error("No request data provided")
             return error_response('Request data is required', 400)
         
         required_fields = ['title', 'month', 'year', 'batch_id']
@@ -195,7 +197,9 @@ def create_monthly_exam():
         
     except Exception as e:
         db.session.rollback()
-        logger.error(f"Error creating monthly exam: {e}")
+        logger.error(f"Error creating monthly exam: {e}", exc_info=True)
+        import traceback
+        traceback.print_exc()
         return error_response(f'Failed to create monthly exam: {str(e)}', 500)
 
 @monthly_exams_bp.route('/<int:exam_id>/marks', methods=['POST'])
@@ -272,7 +276,7 @@ def submit_marks():
 @monthly_exams_bp.route('/<int:exam_id>/comprehensive-ranking', methods=['GET'])
 @login_required
 def get_comprehensive_monthly_ranking(exam_id):
-    """Get comprehensive ranking with individual exams, attendance, and bonus marks"""
+    """Get comprehensive ranking with individual exams, attendance, roll numbers, and bonus marks"""
     try:
         current_user = get_current_user()
         
@@ -305,10 +309,18 @@ def get_comprehensive_monthly_ranking(exam_id):
         rankings = []
         
         for student in batch_students:
+            # Get existing ranking to get roll number and previous position
+            existing_ranking = MonthlyRanking.query.filter_by(
+                monthly_exam_id=exam_id,
+                user_id=student.id
+            ).first()
+            
             # Get individual exam marks
             individual_marks = {}
             total_exam_marks = 0
             total_possible_marks = 0
+            exam_count = len(individual_exams)
+            passed_exams = 0
             
             for exam in individual_exams:
                 mark = MonthlyMark.query.filter_by(
@@ -323,10 +335,14 @@ def get_comprehensive_monthly_ranking(exam_id):
                         'subject': exam.subject,
                         'marks_obtained': mark.marks_obtained,
                         'total_marks': mark.total_marks,
-                        'is_absent': mark.is_absent
+                        'percentage': round((mark.marks_obtained / mark.total_marks * 100), 2) if mark.total_marks > 0 else 0,
+                        'is_absent': mark.is_absent,
+                        'grade': calculate_grade_and_gpa((mark.marks_obtained / mark.total_marks * 100) if mark.total_marks > 0 else 0)[0]
                     }
                     if not mark.is_absent:
                         total_exam_marks += mark.marks_obtained
+                        if mark.marks_obtained >= (mark.total_marks * 0.4):  # 40% pass mark
+                            passed_exams += 1
                     total_possible_marks += mark.total_marks
                 else:
                     individual_marks[exam.id] = {
@@ -334,13 +350,30 @@ def get_comprehensive_monthly_ranking(exam_id):
                         'subject': exam.subject,
                         'marks_obtained': 0,
                         'total_marks': exam.marks,
-                        'is_absent': True
+                        'percentage': 0,
+                        'is_absent': True,
+                        'grade': 'F'
                     }
                     total_possible_marks += exam.marks
             
             # Calculate attendance marks (1 mark per present day in the month)
             attendance_marks = 0
+            total_days = 0
+            max_attendance_marks = 0
+            
             if monthly_exam.start_date and monthly_exam.end_date:
+                # Count total working days in the month (this becomes max attendance marks)
+                current_date = monthly_exam.start_date.date()
+                end_date = monthly_exam.end_date.date()
+                
+                while current_date <= end_date:
+                    # Count only weekdays (Monday to Friday)
+                    if current_date.weekday() < 5:  # 0-4 are Monday to Friday
+                        total_days += 1
+                    current_date += timedelta(days=1)
+                
+                max_attendance_marks = total_days  # Maximum possible attendance marks
+                
                 present_count = Attendance.query.filter(
                     Attendance.user_id == student.id,
                     Attendance.batch_id == monthly_exam.batch_id,
@@ -350,43 +383,100 @@ def get_comprehensive_monthly_ranking(exam_id):
                 ).count()
                 attendance_marks = present_count
             
-            # Bonus marks from Settings table
-            bonus_marks = get_bonus_marks_for_exam(exam_id, student.id)
+            # Calculate attendance percentage
+            attendance_percentage = (attendance_marks / total_days * 100) if total_days > 0 else 0
             
-            # Calculate final totals
-            final_total = total_exam_marks + attendance_marks + bonus_marks
-            total_possible = total_possible_marks + 30 + 100  # Assuming max 30 attendance days + 100 bonus
+            # Calculate final totals (NO BONUS - just exam marks + attendance marks)
+            final_total = total_exam_marks + attendance_marks
+            total_possible = total_possible_marks + max_attendance_marks  # Total possible including max attendance
             
-            # Calculate percentage
+            # Calculate simple percentage based on obtained vs total possible
             percentage = (final_total / total_possible * 100) if total_possible > 0 else 0
             
-            # Calculate grade and GPA
+            # Calculate grade and GPA based on final percentage
             grade, gpa = calculate_grade_and_gpa(percentage)
+            exam_gpa = calculate_grade_and_gpa((total_exam_marks / total_possible_marks * 100) if total_possible_marks > 0 else 0)[1]
+            
+            # Get previous month ranking for comparison and roll number
+            previous_position = None
+            previous_roll_number = None
+            
+            if existing_ranking and existing_ranking.previous_position:
+                previous_position = existing_ranking.previous_position
+            
+            # Always try to find previous month ranking for roll number inheritance
+            prev_month = monthly_exam.month - 1 if monthly_exam.month > 1 else 12
+            prev_year = monthly_exam.year if monthly_exam.month > 1 else monthly_exam.year - 1
+            
+            prev_exam = MonthlyExam.query.filter_by(
+                batch_id=monthly_exam.batch_id,
+                month=prev_month,
+                year=prev_year
+            ).first()
+            
+            if prev_exam:
+                prev_ranking = MonthlyRanking.query.filter_by(
+                    monthly_exam_id=prev_exam.id,
+                    user_id=student.id,
+                    is_final=True
+                ).first()
+                if prev_ranking:
+                    previous_position = prev_ranking.position
+                    previous_roll_number = prev_ranking.roll_number
+            
+            # Determine roll number: use existing, or inherit from previous month, or None
+            current_roll_number = None
+            if existing_ranking and existing_ranking.roll_number:
+                current_roll_number = existing_ranking.roll_number
+            elif previous_roll_number:
+                current_roll_number = previous_roll_number  # Inherit from previous month
             
             ranking_data = {
                 'user_id': student.id,
                 'student_name': student.full_name,
                 'student_phone': student.phoneNumber,
+                'roll_number': current_roll_number,
                 'individual_marks': individual_marks,
                 'total_exam_marks': total_exam_marks,
                 'total_possible_marks': total_possible_marks,
                 'attendance_marks': attendance_marks,
-                'bonus_marks': bonus_marks,
+                'max_attendance_marks': max_attendance_marks,
+                'total_attendance_days': total_days,
+                'attendance_percentage': round(attendance_percentage, 2),
                 'final_total': final_total,
                 'total_possible': total_possible,
                 'percentage': round(percentage, 2),
                 'grade': grade,
-                'gpa': round(gpa, 2)
+                'gpa': round(gpa, 2),
+                'exam_gpa': round(exam_gpa, 2),
+                'passed_exams': passed_exams,
+                'total_exams': exam_count,
+                'previous_position': previous_position
             }
             
             rankings.append(ranking_data)
         
-        # Sort by percentage (descending), then by name (ascending) for ties
-        rankings.sort(key=lambda x: (-x['percentage'], x['student_name']))
+        # Sort by final percentage (descending), then by total marks, then by name
+        rankings.sort(key=lambda x: (-x['percentage'], -x['final_total'], x['student_name']))
         
-        # Assign positions
+        # Assign positions and calculate position changes
         for idx, rank in enumerate(rankings):
-            rank['position'] = idx + 1
+            current_position = idx + 1
+            rank['current_position'] = current_position
+            rank['position'] = current_position  # For compatibility
+            
+            # Calculate position change
+            if rank['previous_position']:
+                rank['position_change'] = rank['previous_position'] - current_position
+                if rank['position_change'] > 0:
+                    rank['position_trend'] = 'up'
+                elif rank['position_change'] < 0:
+                    rank['position_trend'] = 'down'
+                else:
+                    rank['position_trend'] = 'same'
+            else:
+                rank['position_change'] = None
+                rank['position_trend'] = 'new'
         
         # If student, only return their data and nearby rankings
         if current_user.role == UserRole.STUDENT:
@@ -484,6 +574,289 @@ def update_bonus_marks(exam_id):
         db.session.rollback()
         logger.error(f"Error updating bonus marks: {e}")
         return error_response(f'Failed to update bonus marks: {str(e)}', 500)
+
+@monthly_exams_bp.route('/<int:exam_id>/assign-roll-numbers', methods=['POST'])
+@login_required
+@require_role(UserRole.TEACHER, UserRole.SUPER_USER)
+def assign_roll_numbers(exam_id):
+    """Assign roll numbers to students for monthly exam"""
+    try:
+        from models import MonthlyRanking
+        
+        data = request.get_json()
+        if not data or 'roll_assignments' not in data:
+            return error_response('Roll assignments data is required', 400)
+        
+        monthly_exam = MonthlyExam.query.get(exam_id)
+        if not monthly_exam:
+            return error_response('Monthly exam not found', 404)
+        
+        roll_assignments = data['roll_assignments']  # List of {user_id, roll_number}
+        updated_count = 0
+        
+        for assignment in roll_assignments:
+            user_id = assignment.get('user_id')
+            roll_number = assignment.get('roll_number')
+            
+            if not user_id or not roll_number:
+                continue
+            
+            # Check if user is in the batch
+            user = User.query.get(user_id)
+            if not user or monthly_exam.batch_id not in [b.id for b in user.batches]:
+                continue
+            
+            # Create or update MonthlyRanking record
+            ranking = MonthlyRanking.query.filter_by(
+                monthly_exam_id=exam_id,
+                user_id=user_id
+            ).first()
+            
+            if not ranking:
+                ranking = MonthlyRanking(
+                    monthly_exam_id=exam_id,
+                    user_id=user_id,
+                    position=0,  # Will be updated when rankings are calculated
+                    roll_number=roll_number
+                )
+                db.session.add(ranking)
+            else:
+                ranking.roll_number = roll_number
+                ranking.updated_at = datetime.utcnow()
+            
+            updated_count += 1
+        
+        db.session.commit()
+        
+        return success_response('Roll numbers assigned successfully', {
+            'updated_count': updated_count,
+            'exam_title': monthly_exam.title
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error assigning roll numbers: {e}")
+        return error_response(f'Failed to assign roll numbers: {str(e)}', 500)
+
+@monthly_exams_bp.route('/<int:exam_id>/auto-assign-roll-numbers', methods=['POST'])
+@login_required
+@require_role(UserRole.TEACHER, UserRole.SUPER_USER)
+def auto_assign_roll_numbers(exam_id):
+    """Auto-assign roll numbers based on current ranking"""
+    try:
+        from models import MonthlyRanking
+        
+        monthly_exam = MonthlyExam.query.get(exam_id)
+        if not monthly_exam:
+            return error_response('Monthly exam not found', 404)
+        
+        # Get current comprehensive ranking
+        ranking_response = get_comprehensive_monthly_ranking(exam_id)
+        if not ranking_response.json.get('success'):
+            return error_response('Failed to get current rankings', 500)
+        
+        rankings = ranking_response.json['data']['rankings']
+        updated_count = 0
+        
+        for rank_data in rankings:
+            user_id = rank_data['user_id']
+            position = rank_data['position']
+            
+            # Create or update MonthlyRanking record with roll number = position
+            ranking = MonthlyRanking.query.filter_by(
+                monthly_exam_id=exam_id,
+                user_id=user_id
+            ).first()
+            
+            if not ranking:
+                ranking = MonthlyRanking(
+                    monthly_exam_id=exam_id,
+                    user_id=user_id,
+                    position=position,
+                    roll_number=position
+                )
+                db.session.add(ranking)
+            else:
+                ranking.roll_number = position
+                ranking.position = position
+                ranking.updated_at = datetime.utcnow()
+            
+            updated_count += 1
+        
+        db.session.commit()
+        
+        return success_response('Roll numbers auto-assigned based on ranking', {
+            'updated_count': updated_count,
+            'exam_title': monthly_exam.title
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error auto-assigning roll numbers: {e}")
+        return error_response(f'Failed to auto-assign roll numbers: {str(e)}', 500)
+
+@monthly_exams_bp.route('/<int:exam_id>/generate-ranking', methods=['POST'])
+@login_required
+@require_role(UserRole.TEACHER, UserRole.SUPER_USER)
+def generate_monthly_ranking(exam_id):
+    """Generate and save final monthly rankings to database"""
+    try:
+        from models import MonthlyRanking
+        
+        monthly_exam = MonthlyExam.query.get(exam_id)
+        if not monthly_exam:
+            return error_response('Monthly exam not found', 404)
+        
+        # Get comprehensive ranking data (same as the display function)
+        ranking_response_tuple = get_comprehensive_monthly_ranking(exam_id)
+        ranking_response, status_code = ranking_response_tuple
+        
+        if status_code != 200:
+            return error_response('Failed to calculate rankings', 500)
+            
+        ranking_data = ranking_response.get_json()
+        if not ranking_data.get('success'):
+            return error_response('Failed to calculate rankings', 500)
+            
+        rankings = ranking_data['data']['rankings']
+        updated_count = 0
+        
+        # Find previous month's exam to get roll numbers
+        prev_month = monthly_exam.month - 1 if monthly_exam.month > 1 else 12
+        prev_year = monthly_exam.year if monthly_exam.month > 1 else monthly_exam.year - 1
+        
+        prev_exam = MonthlyExam.query.filter_by(
+            batch_id=monthly_exam.batch_id,
+            month=prev_month,
+            year=prev_year
+        ).first()
+        
+        # Build a map of user_id to previous roll number
+        prev_roll_map = {}
+        if prev_exam:
+            print(f"\n🔍 Found previous exam: {prev_exam.month}/{prev_exam.year} (ID: {prev_exam.id})")
+            prev_rankings = MonthlyRanking.query.filter_by(
+                monthly_exam_id=prev_exam.id,
+                is_final=True
+            ).all()
+            print(f"📋 Previous rankings count: {len(prev_rankings)}")
+            for pr in prev_rankings:
+                if pr.roll_number:
+                    prev_roll_map[pr.user_id] = pr.roll_number
+                    print(f"  User {pr.user_id} had roll number: {pr.roll_number}")
+        else:
+            print(f"\n⚠️  No previous exam found for {prev_month}/{prev_year}")
+        
+        print(f"📊 Previous roll map: {prev_roll_map}")
+        
+        # Clear existing rankings for this exam
+        MonthlyRanking.query.filter_by(monthly_exam_id=exam_id).delete()
+        
+        # Create new ranking records and assign roll numbers from previous month
+        for idx, rank_data in enumerate(rankings):
+            # ALWAYS use previous month's roll number map, ignore current roll_number
+            user_id = rank_data['user_id']
+            
+            # Inherit from previous month or assign new roll number
+            if user_id in prev_roll_map:
+                roll_number = prev_roll_map[user_id]
+                print(f"✅ User {user_id}: Inherited roll {roll_number} from previous month")
+            else:
+                # New student: assign roll number based on current rank
+                roll_number = idx + 1
+                print(f"🆕 User {user_id}: New student, assigned roll {roll_number}")
+            
+            ranking = MonthlyRanking(
+                monthly_exam_id=exam_id,
+                user_id=rank_data['user_id'],
+                position=rank_data['position'],
+                roll_number=roll_number,  # Use previous month's roll or auto-assigned
+                total_exam_marks=rank_data['total_exam_marks'],
+                total_possible_marks=rank_data['total_possible_marks'],
+                attendance_marks=rank_data['attendance_marks'],
+                bonus_marks=0,  # No bonus marks as requested
+                final_total=rank_data['final_total'],
+                max_possible_total=rank_data['total_possible'],
+                percentage=rank_data['percentage'],
+                grade=rank_data['grade'],
+                gpa=rank_data['gpa'],
+                exam_gpa=rank_data['exam_gpa'],
+                previous_position=rank_data.get('previous_position'),
+                is_final=True
+            )
+            db.session.add(ranking)
+            updated_count += 1
+        
+        db.session.commit()
+        
+        return success_response('Monthly rankings generated and saved successfully', {
+            'rankings_count': updated_count,
+            'exam_title': monthly_exam.title,
+            'total_students': len(rankings)
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error generating monthly ranking: {e}")
+        return error_response(f'Failed to generate ranking: {str(e)}', 500)
+
+@monthly_exams_bp.route('/<int:exam_id>/rankings-status', methods=['GET'])
+@login_required
+def check_rankings_status(exam_id):
+    """Check if rankings have been generated and saved for this exam"""
+    try:
+        monthly_exam = MonthlyExam.query.get(exam_id)
+        if not monthly_exam:
+            return error_response('Monthly exam not found', 404)
+        
+        # Check if any rankings exist for this exam
+        rankings_count = MonthlyRanking.query.filter_by(
+            monthly_exam_id=exam_id,
+            is_final=True
+        ).count()
+        
+        return success_response('Rankings status retrieved', {
+            'has_rankings': rankings_count > 0,
+            'rankings_count': rankings_count,
+            'exam_id': exam_id,
+            'exam_title': monthly_exam.title
+        })
+        
+    except Exception as e:
+        logger.error(f"Error checking rankings status: {e}")
+        return error_response(f'Failed to check rankings status: {str(e)}', 500)
+
+
+@monthly_exams_bp.route('/<int:exam_id>/toggle-homepage', methods=['POST'])
+@login_required
+@require_role(UserRole.TEACHER, UserRole.SUPER_USER)
+def toggle_homepage_feature(exam_id):
+    """Toggle whether this exam's top 3 students appear on homepage"""
+    try:
+        monthly_exam = MonthlyExam.query.get(exam_id)
+        if not monthly_exam:
+            return error_response('Monthly exam not found', 404)
+        
+        data = request.get_json()
+        show_on_homepage = data.get('show_on_homepage', False)
+        
+        # Update the flag
+        monthly_exam.show_on_homepage = show_on_homepage
+        db.session.commit()
+        
+        message = 'Top 3 students will now appear on homepage' if show_on_homepage else 'Removed from homepage featured results'
+        
+        return success_response(message, {
+            'exam_id': exam_id,
+            'show_on_homepage': show_on_homepage,
+            'exam_title': monthly_exam.title
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error toggling homepage feature: {e}")
+        return error_response(f'Failed to update homepage feature: {str(e)}', 500)
+
 
 @monthly_exams_bp.route('/<int:exam_id>/ranking', methods=['GET'])
 @login_required
@@ -1169,6 +1542,7 @@ def serialize_monthly_exam(exam):
         'batch_name': exam.batch.name,
         'status': exam.status,
         'show_results': exam.show_results,
+        'show_on_homepage': exam.show_on_homepage if hasattr(exam, 'show_on_homepage') else False,
         'result_published_at': exam.result_published_at.isoformat() if exam.result_published_at else None,
         'individual_exams_count': len(exam.individual_exams),
         'created_at': exam.created_at.isoformat()
@@ -1482,3 +1856,57 @@ def send_sms_notification(phone, message, current_user):
         return {'success': False, 'error': 'SMS API connection error'}
     except Exception as e:
         return {'success': False, 'error': f'SMS API error: {str(e)}'}
+
+
+@monthly_exams_bp.route('/homepage-top-performers', methods=['GET'])
+def get_homepage_top_performers():
+    """Get top 3 students from all monthly exams featured on homepage"""
+    try:
+        # Find all monthly exams that are marked to show on homepage
+        featured_exams = MonthlyExam.query.filter_by(show_on_homepage=True).all()
+        
+        if not featured_exams:
+            return success_response('No featured exams', {'featured_results': []})
+        
+        featured_results = []
+        
+        for exam in featured_exams:
+            # Get top 3 rankings for this exam
+            top_rankings = MonthlyRanking.query.filter_by(
+                monthly_exam_id=exam.id,
+                is_final=True
+            ).order_by(MonthlyRanking.position.asc()).limit(3).all()
+            
+            if top_rankings:
+                top_students = []
+                for ranking in top_rankings:
+                    student = User.query.get(ranking.user_id)
+                    if student:
+                        top_students.append({
+                            'position': ranking.position,
+                            'student_name': student.full_name,
+                            'student_phone': student.phoneNumber,
+                            'roll_number': ranking.roll_number,
+                            'total_marks': ranking.final_total,
+                            'total_possible': ranking.max_possible_total,
+                            'percentage': round(ranking.percentage, 2) if ranking.percentage else 0,
+                            'grade': ranking.grade
+                        })
+                
+                featured_results.append({
+                    'exam_id': exam.id,
+                    'exam_title': exam.title,
+                    'month': exam.month,
+                    'year': exam.year,
+                    'batch_name': exam.batch.name if exam.batch else 'N/A',
+                    'top_students': top_students
+                })
+        
+        return success_response('Featured top performers retrieved', {
+            'featured_results': featured_results,
+            'count': len(featured_results)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting homepage top performers: {e}")
+        return error_response(f'Failed to get top performers: {str(e)}', 500)

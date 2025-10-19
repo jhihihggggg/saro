@@ -281,12 +281,17 @@
          x-transition:leave-end="opacity-0"
          class="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50">
         <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-96 overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-semibold text-gray-900">Students in <span x-text="selectedBatch?.name"></span></h3>
+            <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+                <div class="px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-gray-900">Students in <span x-text="selectedBatch?.name"></span></h3>
+                        <button @click="showStudentsModal = false" class="text-gray-400 hover:text-gray-600 text-xl">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
                 </div>
                 
-                <div class="p-6 overflow-y-auto max-h-80">
+                <div class="p-6 overflow-y-auto flex-1">
                     <div x-show="batchStudents.length === 0" class="text-center py-8">
                         <i class="fas fa-users text-4xl text-gray-400 mb-4"></i>
                         <p class="text-gray-600">No students in this batch</p>
@@ -313,8 +318,13 @@
                     </div>
                 </div>
                 
-                <div class="px-6 py-4 border-t border-gray-200">
-                    <button @click="showStudentsModal = false" class="btn-secondary">Close</button>
+                <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600" x-text="`${batchStudents.length} student${batchStudents.length !== 1 ? 's' : ''} total`"></span>
+                        <button @click="showStudentsModal = false" class="btn-secondary">
+                            <i class="fas fa-arrow-left mr-2"></i>Back
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

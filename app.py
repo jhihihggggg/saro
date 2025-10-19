@@ -80,6 +80,30 @@ def create_app(config_name=None):
     @app.errorhandler(404)
     def not_found(error):
         from flask import request
+        # Log 404 details for debugging (method, path, headers, body)
+        try:
+            log_text = []
+            log_text.append(f"TIME: {__import__('datetime').datetime.utcnow().isoformat()}Z")
+            log_text.append(f"METHOD: {request.method}")
+            log_text.append(f"PATH: {request.path}")
+            # Headers
+            headers = '\n'.join([f"{k}: {v}" for k, v in request.headers.items()])
+            log_text.append('HEADERS:')
+            log_text.append(headers)
+            # Body (may be empty)
+            try:
+                body = request.get_data(as_text=True)
+            except Exception:
+                body = '<unable to read body>'
+            log_text.append('BODY:')
+            log_text.append(body or '')
+            log_text.append('-' * 80)
+            with open('/tmp/last_404.log', 'a') as f:
+                f.write('\n'.join(log_text) + '\n')
+        except Exception:
+            # Best-effort logging only
+            pass
+
         if request.is_json or request.path.startswith('/api/'):
             return jsonify({'error': 'Not found'}), 404
         return render_template('errors/404.html'), 404

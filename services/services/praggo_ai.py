@@ -7,7 +7,10 @@ import re
 import json
 import asyncio
 from typing import List, Dict, Optional, AsyncGenerator, Tuple
-import google.generativeai as genai
+try:
+    import google.generativeai as genai
+except ImportError:
+    import mock_google_genai as genai
 from dataclasses import dataclass
 import logging
 

@@ -37,6 +37,11 @@ def debug_fees():
     except FileNotFoundError:
         return "<h1>Debug fees page not found</h1><p>The debug_fees.html file was not found.</p>", 404
 
+@templates_bp.route('/test-fee-save')
+def test_fee_save():
+    """Test page for fee save endpoint"""
+    return render_template('test_fee_save.html')
+
 @templates_bp.route('/login')
 def login_page():
     """Login page"""

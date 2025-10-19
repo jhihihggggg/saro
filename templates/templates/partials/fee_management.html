@@ -1,5 +1,6 @@
 <!-- Fee Management Component -->
 <div class="space-y-6" x-data="feeManager()" x-init="init()">
+    <!-- VERSION: 2.0 - Fixed monthly-save endpoint -->
     <!-- Header -->
     <div class="flex justify-between items-center">
         <div>
@@ -75,7 +76,7 @@
                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
                             </svg>
                         </div>
-                        <div class="ml-3">
+                        <div class="ml-3 flex-1">
                             <p class="text-sm text-red-700" x-text="error"></p>
                             <div x-show="error.includes('log in') || error.includes('Access denied')" class="mt-2">
                                 <a href="/login" class="text-sm bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded-md">
@@ -83,6 +84,9 @@
                                 </a>
                             </div>
                         </div>
+                        <button @click="error = ''" class="text-red-500 hover:text-red-700 font-bold">
+                            ×
+                        </button>
                     </div>
                 </div>
 
@@ -294,6 +298,7 @@ function feeManager() {
                 console.log(`Loaded ${this.students.length} students`);
                 
                 if (this.students.length > 0) {
+                    this.error = ''; // Clear any previous errors
                     await this.loadFees();
                 } else {
                     this.error = 'No students found in this batch';
@@ -381,15 +386,17 @@ function feeManager() {
                     };
                     
                     console.log('Saving fee:', payload);
+                    console.log('🔥 Calling endpoint: /api/fees/monthly-save');
                     
-                    const response = await fetch('/api/fees/monthly', {
+                    const response = await fetch('/api/fees/monthly-save', {
                         method: 'POST',
                         credentials: 'same-origin',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
                     
-                    console.log('Response status:', response.status);
+                    console.log('✅ Response status:', response.status);
+                    console.log('✅ Response OK:', response.ok);
                     
                     if (!response.ok) {
                         const errorData = await response.json().catch(() => ({}));
@@ -417,15 +424,18 @@ function feeManager() {
                 // Show success message
                 const successMsg = `Successfully saved ${savedCount} fee record${savedCount !== 1 ? 's' : ''}!`;
                 console.log(successMsg);
+                this.error = ''; // Clear any error
                 this.message = successMsg;
                 
                 // Reload fees to get updated data
                 await this.loadFees();
                 
             } catch (err) {
-                console.error('Save error:', err);
+                console.error('❌ Save error:', err);
+                console.error('❌ Error type:', typeof err);
+                console.error('❌ Error message:', err.message);
+                console.error('❌ Full error:', JSON.stringify(err, null, 2));
                 this.error = err.message || 'Failed to save fees';
-                console.error('Error saving fees:', err.message || 'Unknown error');
             } finally {
                 this.saving = false;
             }

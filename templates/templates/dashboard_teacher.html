@@ -183,6 +183,10 @@
 </div>
 
 <script>
+// Set global user role for use in partials
+window.userRole = '{{ user.role.value }}';
+console.log('User role set to:', window.userRole);
+
 function teacherDashboard() {
     return {
         activeSection: 'dashboard',
@@ -203,6 +207,7 @@ function teacherDashboard() {
         marksEntryData: [],
         monthlyResults: [],
         smsBalance: 0,
+        rankingsGenerated: false, // Track if final rankings have been generated
         createMonthlyExamForm: {
             title: '',
             month: new Date().getMonth() + 1,
@@ -284,9 +289,26 @@ function teacherDashboard() {
                 if (response.ok) {
                     const data = await response.json();
                     this.individualExams = data.data?.individual_exams || [];
+                    
+                    // Check if rankings have been generated for this exam
+                    await this.checkRankingsStatus(examId);
                 }
             } catch (error) {
                 console.error('Failed to load individual exams:', error);
+            }
+        },
+        
+        async checkRankingsStatus(examId) {
+            try {
+                const response = await fetch(`/api/monthly-exams/${examId}/rankings-status`);
+                if (response.ok) {
+                    const data = await response.json();
+                    this.rankingsGenerated = data.data?.has_rankings || false;
+                    console.log('Rankings generated status:', this.rankingsGenerated);
+                }
+            } catch (error) {
+                console.error('Failed to check rankings status:', error);
+                this.rankingsGenerated = false;
             }
         },
         
@@ -529,16 +551,44 @@ function teacherDashboard() {
         },
 
         viewComprehensiveResults() {
+            // Auto-select first exam if none is selected
             if (!this.selectedMonthlyExam) {
-                utils.showAlert('Please select a monthly exam first', 'warning');
-                return;
+                if (this.monthlyExams && this.monthlyExams.length > 0) {
+                    this.selectedMonthlyExam = this.monthlyExams[0];
+                    console.log('Auto-selected first monthly exam:', this.selectedMonthlyExam);
+                } else {
+                    utils.showAlert('No monthly exams available. Please create one first.', 'warning');
+                    return;
+                }
             }
 
             // Set the global variable for the comprehensive results component
             window.currentMonthlyExamId = this.selectedMonthlyExam.id;
+            console.log('Set window.currentMonthlyExamId to:', window.currentMonthlyExamId);
             
             // Show the comprehensive results modal
             this.showComprehensiveResults = true;
+        },
+
+        async checkRankingsExist() {
+            if (!this.selectedMonthlyExam) {
+                this.rankingsGenerated = false;
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/monthly-exams/${this.selectedMonthlyExam.id}/rankings-status`);
+                if (response.ok) {
+                    const data = await response.json();
+                    this.rankingsGenerated = data.data.has_rankings;
+                    console.log('Rankings exist:', this.rankingsGenerated);
+                } else {
+                    this.rankingsGenerated = false;
+                }
+            } catch (error) {
+                console.error('Failed to check rankings status:', error);
+                this.rankingsGenerated = false;
+            }
         },
 
         async generateRanking() {
@@ -548,14 +598,25 @@ function teacherDashboard() {
             }
 
             try {
-                const response = await fetch(`/api/monthly-exams/${this.selectedMonthlyExam.id}/ranking`);
+                utils.showAlert('Generating rankings...', 'info');
+                
+                const response = await fetch(`/api/monthly-exams/${this.selectedMonthlyExam.id}/generate-ranking`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
                 
                 if (response.ok) {
                     const data = await response.json();
-                    this.monthlyResults = data.data.rankings || [];
                     
-                    // Update UI with results
-                    utils.showAlert(`Ranking generated successfully! ${this.monthlyResults.length} students ranked.`, 'success');
+                    // Update rankings status
+                    this.rankingsGenerated = true;
+                    
+                    // Refresh the comprehensive results to show the saved rankings
+                    await this.viewComprehensiveResults();
+                    
+                    utils.showAlert(`Final rankings generated and saved successfully! ${data.data.rankings_count} students ranked.`, 'success');
                 } else {
                     const error = await response.json();
                     utils.showAlert('Failed to generate ranking: ' + (error.message || 'Unknown error'), 'error');
@@ -902,11 +963,13 @@ function attendanceManager() {
                         phone: student.phoneNumber || student.phone,
                         guardian_phone: student.guardian_phone,
                         email: student.email,
+                        roll_number: student.roll_number,  // Roll number from most recent monthly exam
                         status: attendance ? attendance.status : 'absent'
                     };
                 });
                 
-                console.log('Processed attendance students:', this.attendanceStudents);
+                // Students are already sorted by roll number from the API
+                console.log('Processed attendance students (sorted by roll number):', this.attendanceStudents);
 
             } catch (error) {
                 console.error('Failed to load students for attendance:', error);
@@ -989,6 +1052,74 @@ function attendanceManager() {
             } catch (error) {
                 console.error('Failed to save attendance:', error);
                 this.errorMessage = error.message || 'Failed to save attendance';
+            } finally {
+                this.saving = false;
+            }
+        },
+
+        // Save attendance and send SMS to absent students only
+        async saveAttendanceAndSendSmsToAbsentOnly() {
+            if (!this.selectedBatchId || !this.selectedDate || this.attendanceStudents.length === 0) {
+                this.errorMessage = 'Please select batch, date and ensure students are loaded';
+                return;
+            }
+
+            const absentStudents = this.attendanceStudents.filter(s => s.status === 'absent');
+            if (absentStudents.length === 0) {
+                this.errorMessage = 'No absent students to send SMS to';
+                return;
+            }
+
+            if (this.smsBalance < absentStudents.length) {
+                this.errorMessage = `Insufficient SMS balance. Need ${absentStudents.length} SMS, but only ${this.smsBalance} available`;
+                return;
+            }
+
+            try {
+                this.saving = true;
+                this.errorMessage = '';
+
+                // Prepare attendance data
+                const attendanceData = this.attendanceStudents.map(student => ({
+                    userId: student.id,
+                    status: student.status
+                }));
+
+                // Save attendance and send SMS to absent only
+                const response = await fetch('/api/attendance/bulk-absent-sms', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        batchId: parseInt(this.selectedBatchId),
+                        date: this.selectedDate,
+                        attendanceData: attendanceData
+                    })
+                });
+
+                console.log('Save attendance (absent SMS) response status:', response.status);
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        this.errorMessage = 'Session expired. Please login again.';
+                        return;
+                    }
+                    const error = await response.json();
+                    throw new Error(error.message || 'Failed to save attendance and send SMS');
+                }
+
+                const result = await response.json();
+                console.log('Save attendance (absent SMS) result:', result);
+                
+                this.errorMessage = `Attendance saved and ${absentStudents.length} SMS sent to absent students!`;
+                await this.loadSmsBalance(); // Refresh SMS balance
+
+            } catch (error) {
+                console.error('Failed to save attendance and send SMS:', error);
+                this.errorMessage = error.message || 'Failed to save attendance and send SMS';
             } finally {
                 this.saving = false;
             }

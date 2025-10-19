@@ -307,12 +307,34 @@ def delete_batch(batch_id):
 @login_required
 @require_role(UserRole.TEACHER, UserRole.SUPER_USER)
 def get_batch_students(batch_id):
-    """Get all students in a batch"""
+    """Get all students in a batch, sorted by roll number from most recent monthly exam"""
     try:
+        from models import MonthlyExam, MonthlyRanking
+        
         batch = Batch.query.get(batch_id)
         
         if not batch:
             return error_response('Batch not found', 404)
+        
+        # Find most recent monthly exam for this batch with finalized rankings
+        most_recent_exam = MonthlyExam.query.filter_by(
+            batch_id=batch_id
+        ).order_by(
+            MonthlyExam.year.desc(),
+            MonthlyExam.month.desc()
+        ).first()
+        
+        # Build a map of user_id to current rank from most recent exam
+        rank_map = {}
+        if most_recent_exam:
+            rankings = MonthlyRanking.query.filter_by(
+                monthly_exam_id=most_recent_exam.id,
+                is_final=True
+            ).all()
+            
+            for ranking in rankings:
+                if ranking.position:
+                    rank_map[ranking.user_id] = ranking.position  # Use position as current rank
         
         students = []
         for student in batch.students:
@@ -328,9 +350,14 @@ def get_batch_students(batch_id):
                     'student_id': student.student_id,  # Generated student ID property
                     'guardian_phone': student.guardian_phone,
                     'emergency_contact': student.emergency_contact,
-                    'created_at': student.created_at.isoformat()
+                    'created_at': student.created_at.isoformat(),
+                    'roll_number': rank_map.get(student.id),  # Current rank as roll number
+                    'current_rank': rank_map.get(student.id)  # Current rank
                 }
                 students.append(student_data)
+        
+        # Sort students by current rank (students without rank go to the end)
+        students.sort(key=lambda s: (s['current_rank'] is None, s['current_rank'] if s['current_rank'] else 999999))
         
         return success_response('Batch students retrieved', {'students': students})
         

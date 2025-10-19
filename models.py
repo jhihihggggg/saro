@@ -465,6 +465,7 @@ class MonthlyExam(db.Model):
     batch_id = db.Column(db.Integer, db.ForeignKey('batches.id'), nullable=False)
     status = db.Column(db.String(20), default='active')  # active, completed, cancelled
     show_results = db.Column(db.Boolean, default=False)
+    show_on_homepage = db.Column(db.Boolean, default=False)  # Feature top 3 students on homepage
     result_published_at = db.Column(db.DateTime, nullable=True)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -558,6 +559,7 @@ class MonthlyRanking(db.Model):
     monthly_exam_id = db.Column(db.Integer, db.ForeignKey('monthly_exams.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     position = db.Column(db.Integer, nullable=False)  # Final ranking position (1, 2, 3...)
+    roll_number = db.Column(db.Integer, nullable=True)  # Student roll number for this monthly exam
     total_exam_marks = db.Column(db.Float, nullable=False, default=0)  # Sum of individual exam marks
     total_possible_marks = db.Column(db.Float, nullable=False, default=0)  # Sum of total possible marks
     attendance_marks = db.Column(db.Integer, nullable=False, default=0)  # Present days count
@@ -568,6 +570,7 @@ class MonthlyRanking(db.Model):
     grade = db.Column(db.String(5), nullable=True)  # Overall grade
     gpa = db.Column(db.Float, nullable=True)  # Overall GPA
     exam_gpa = db.Column(db.Float, nullable=True)  # GPA based on exam marks only
+    previous_position = db.Column(db.Integer, nullable=True)  # Position in previous month for comparison
     is_final = db.Column(db.Boolean, default=False)  # Whether ranking is finalized
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
