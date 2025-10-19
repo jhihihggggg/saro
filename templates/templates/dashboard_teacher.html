@@ -598,17 +598,22 @@ function teacherDashboard() {
             }
 
             try {
+                console.log('🔄 Generating ranking for exam ID:', this.selectedMonthlyExam.id);
                 utils.showAlert('Generating rankings...', 'info');
                 
                 const response = await fetch(`/api/monthly-exams/${this.selectedMonthlyExam.id}/generate-ranking`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
-                    }
+                    },
+                    credentials: 'include'  // Important: include session cookies
                 });
+                
+                console.log('📡 Response status:', response.status);
                 
                 if (response.ok) {
                     const data = await response.json();
+                    console.log('✅ Rankings generated:', data);
                     
                     // Update rankings status
                     this.rankingsGenerated = true;
@@ -618,12 +623,18 @@ function teacherDashboard() {
                     
                     utils.showAlert(`Final rankings generated and saved successfully! ${data.data.rankings_count} students ranked.`, 'success');
                 } else {
-                    const error = await response.json();
-                    utils.showAlert('Failed to generate ranking: ' + (error.message || 'Unknown error'), 'error');
+                    const errorText = await response.text();
+                    console.error('❌ Server error:', response.status, errorText);
+                    try {
+                        const error = JSON.parse(errorText);
+                        utils.showAlert('Failed to generate ranking: ' + (error.message || 'Unknown error'), 'error');
+                    } catch {
+                        utils.showAlert(`Failed to generate ranking. Server returned status ${response.status}`, 'error');
+                    }
                 }
             } catch (error) {
-                console.error('Failed to generate ranking:', error);
-                utils.showAlert('Failed to generate ranking. Please check your connection and try again.', 'error');
+                console.error('❌ Network/JavaScript error:', error);
+                utils.showAlert('Failed to generate ranking: ' + error.message, 'error');
             }
         },
 
