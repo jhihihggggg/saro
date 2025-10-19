@@ -24,7 +24,8 @@ flask_session/
 *.sqlite3
 
 # Environment variables
-.env
+# .env is now committed to GitHub for VPS deployment
+# .env
 .env.local
 .env.*.local
 
