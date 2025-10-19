@@ -2,6 +2,24 @@
 
 A comprehensive Flask-based student management system for educational institutions.
 
+## 🚀 Quick Start
+
+```bash
+# Clone and setup
+git clone https://github.com/8ytgggygt/saro.git
+cd saro
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# Run the application (creates database automatically)
+python run.py
+
+# Access at http://127.0.0.1:3001
+```
+
+Default login: Phone `01712345678`, Password `admin123` (after running `create_default_users.py`)
+
 ## 🌟 Features
 
 - **Multi-Role Authentication**: Support for Students, Teachers, and Super Users
@@ -15,17 +33,22 @@ A comprehensive Flask-based student management system for educational institutio
 
 ## 🚀 Tech Stack
 
-- **Backend**: Flask (Python)
-- **Database**: MySQL / SQLite
-- **Authentication**: Flask-Session with secure password hashing
+- **Backend**: Flask 3.1.2 (Python)
+- **Database**: SQLite (dev) / MySQL (production)
+- **ORM**: SQLAlchemy 2.0.44
+- **Authentication**: Flask-Session with Bcrypt password hashing
 - **Frontend**: HTML, CSS, JavaScript
-- **SMS**: Custom SMS integration
+- **SMS**: Custom SMS integration (optional)
+- **AI**: Google Gemini API integration (optional)
 
 ## 📋 Prerequisites
 
-- Python 3.8+
-- MySQL Server (or SQLite for development)
+- Python 3.8+ (3.12 recommended)
 - pip (Python package manager)
+- Git
+
+**Optional** (for production):
+- MySQL Server 8.0+
 
 ## 🛠️ Installation
 
@@ -37,8 +60,8 @@ A comprehensive Flask-based student management system for educational institutio
 
 2. **Create virtual environment**
    ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   python3 -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
    ```
 
 3. **Install dependencies**
@@ -46,28 +69,34 @@ A comprehensive Flask-based student management system for educational institutio
    pip install -r requirements.txt
    ```
 
-4. **Configure environment variables**
-   Create a `.env` file:
-   ```env
-   MYSQL_HOST=localhost
-   MYSQL_USER=root
-   MYSQL_PASSWORD=your_password
-   MYSQL_DATABASE=smartgardenhub
-   SECRET_KEY=your_secret_key_here
-   ```
-
-5. **Initialize database**
+4. **Configure environment variables (Optional)**
+   
+   Copy the example file and customize:
    ```bash
-   python init_db.py
+   cp .env.example .env
+   # Edit .env with your preferred settings
+   ```
+   
+   **Note**: The app works out-of-the-box with SQLite (no MySQL setup needed for development)
+
+5. **Initialize database (Optional)**
+   
+   The database is created automatically on first run. To create default test users:
+   ```bash
    python create_default_users.py
    ```
 
 6. **Run the application**
    ```bash
-   python app.py
+   python run.py
    ```
 
-   Server will start at `http://127.0.0.1:5000`
+   Server will start at `http://127.0.0.1:3001` (or `http://0.0.0.0:3001`)
+
+   Alternative method:
+   ```bash
+   python app.py
+   ```
 
 ## 👥 Default Login Credentials
 
@@ -90,24 +119,48 @@ After running `create_default_users.py`:
 ```
 saro/
 ├── app.py                 # Main application entry point
-├── config.py              # Configuration settings
-├── models.py              # Database models
-├── auth.py                # Authentication routes
-├── routes/                # API routes
-│   ├── students.py
-│   ├── batches.py
-│   ├── attendance.py
-│   ├── exams.py
-│   └── ...
-├── utils/                 # Utility functions
-│   ├── auth.py
-│   ├── response.py
-│   └── password_manager.py
+├── run.py                 # Application runner with proper config
+├── config.py              # Configuration settings (SQLite/MySQL)
+├── models.py              # Database models (SQLAlchemy)
+├── routes/                # API routes (Blueprints)
+│   ├── auth.py            # Authentication routes
+│   ├── students.py        # Student management
+│   ├── batches.py         # Batch/class management
+│   ├── attendance.py      # Attendance tracking
+│   ├── exams.py           # Online exams
+│   ├── monthly_exams.py   # Monthly examinations
+│   ├── results.py         # Results management
+│   ├── fees.py            # Fee management
+│   ├── sms.py             # SMS integration
+│   ├── ai.py              # AI features
+│   ├── dashboard.py       # Dashboard analytics
+│   ├── settings.py        # Settings management
+│   └── templates.py       # Template routes
 ├── templates/             # HTML templates
+│   └── templates/         # Nested templates directory
 ├── static/                # Static files (CSS, JS, images)
+│   └── static/            # Nested static directory
 ├── requirements.txt       # Python dependencies
-└── README.md
+├── .env.example           # Environment variables template
+├── .gitignore             # Git ignore rules
+├── DATABASE_SETUP.md      # Comprehensive database documentation
+└── README.md              # This file
 ```
+
+## 📊 Database Configuration
+
+### Development (Default - SQLite)
+- **Database File**: `smartgardenhub.db` (created automatically)
+- **Location**: Project root directory
+- **Advantages**: Zero configuration, perfect for testing
+- **Setup**: None required - database created on first run
+
+### Production (MySQL)
+- **Configuration**: Via `.env` file
+- **Setup Instructions**: See `DATABASE_SETUP.md`
+- **Migration Tools**: Provided migration scripts
+
+For detailed database documentation, schema, and operations, see [`DATABASE_SETUP.md`](DATABASE_SETUP.md).
 
 ## 🔐 Security Features
 
@@ -164,15 +217,58 @@ This project is licensed under the MIT License.
 
 **Golam Sarowar Sir**
 
+## 🚢 Deployment
+
+### Production Deployment
+
+1. **Setup MySQL database** (see `DATABASE_SETUP.md`)
+2. **Configure production environment**:
+   ```bash
+   cp .env.example .env
+   # Edit .env with production values
+   export FLASK_ENV=production
+   ```
+3. **Use Gunicorn** for production server:
+   ```bash
+   pip install gunicorn
+   gunicorn -c gunicorn.conf.py "app:create_app()"
+   ```
+
+### Docker Deployment (Coming Soon)
+
+Docker support with containerized MySQL will be added in future releases.
+
+## � Documentation
+
+- **[DATABASE_SETUP.md](DATABASE_SETUP.md)** - Complete database documentation
+- **[.env.example](.env.example)** - Environment configuration template
+- **API Endpoints** - See "API Endpoints" section above
+
 ## 🆘 Support
 
-For support, email support@smartgardenhub.com or open an issue in the repository.
+For support:
+- Open an issue in the [GitHub repository](https://github.com/8ytgggygt/saro/issues)
+- Review documentation files
+- Check logs in `server.log`
 
 ## 📱 Contact
 
-- Website: [smartgardenhub.com](http://smartgardenhub.com)
-- Email: contact@smartgardenhub.com
+- **GitHub**: [@8ytgggygt](https://github.com/8ytgggygt)
+- **Repository**: [saro](https://github.com/8ytgggygt/saro)
 
 ---
 
 **Built with ❤️ for educational institutions**
+
+### Project Status
+- ✅ Core Features: Complete
+- ✅ Database: SQLite (dev) + MySQL (prod)
+- ✅ Authentication: Complete
+- ✅ Student Management: Complete
+- ✅ Attendance System: Complete
+- ✅ Exam System: Complete
+- ✅ Results Management: Complete
+- 🚧 Docker Support: Coming Soon
+
+**Version**: 1.0.0  
+**Last Updated**: October 19, 2025
