@@ -114,11 +114,12 @@ def validate_phone_number(phone):
     return None
 
 def send_sms_via_api(phone, message):
-    """Send SMS using BulkSMSBD API"""
+    """Send SMS using BulkSMSBD API - Hardcoded Configuration"""
     try:
-        api_key = os.environ.get('SMS_API_KEY', 'gsOKLO6XtKsANCvgPHNt')
-        sender_id = os.environ.get('SMS_SENDER_ID', '8809617628909')
-        api_url = os.environ.get('SMS_API_URL', 'http://bulksmsbd.net/api/smsapi')
+        # Hardcoded SMS API Configuration - DO NOT CHANGE
+        api_key = 'gsOKLO6XtKsANCvgPHNt'
+        sender_id = '8809617628909'
+        api_url = 'http://bulksmsbd.net/api/smsapi'
         
         # Format phone number - remove any spaces or special characters
         formatted_phone = phone.strip().replace(' ', '').replace('-', '').replace('+', '')

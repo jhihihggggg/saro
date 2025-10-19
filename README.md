@@ -38,7 +38,7 @@ Default login: Phone `01712345678`, Password `admin123` (after running `create_d
 - **ORM**: SQLAlchemy 2.0.44
 - **Authentication**: Flask-Session with Bcrypt password hashing
 - **Frontend**: HTML, CSS, JavaScript
-- **SMS**: Custom SMS integration (optional)
+- **SMS**: BulkSMSBD API (hardcoded, ready to use)
 - **AI**: Google Gemini API integration (optional)
 
 ## 📋 Prerequisites

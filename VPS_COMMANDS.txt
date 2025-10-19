@@ -83,8 +83,8 @@ sudo ufw status
 # IMPORTANT NOTES
 ############################################################
 
-# 1. Edit .env file and replace these placeholders:
-#    SMS_API_KEY=your_actual_sms_api_key
+# 1. SMS API is hardcoded - works automatically (no configuration needed)
+#    Only need to add (optional):
 #    GOOGLE_API_KEY=your_actual_google_gemini_key
 
 # 2. Default login after deployment:

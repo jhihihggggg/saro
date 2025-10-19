@@ -16,14 +16,13 @@
 - **Auto-created**: Yes, on first run
 - **Backup-ready**: Yes, single file to backup
 
-### 3. **API Keys Placeholders** ⚠️
-You need to add your actual API keys:
+### 3. **API Keys Configuration** ⚠️
 
-**SMS API** (Optional):
-```
-SMS_API_KEY=your_sms_api_key_here
-SMS_API_URL=https://api.sms-provider.com/send
-```
+**SMS API**: ✅ **Hardcoded and Ready!**
+- API is permanently configured in the code
+- No configuration needed
+- Works immediately after deployment
+- Provider: BulkSMSBD
 
 **Google Gemini API** (Optional):
 ```

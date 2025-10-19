@@ -62,8 +62,9 @@ nano .env
 ```
 
 Replace these placeholders:
-- `your_sms_api_key_here` → Your actual SMS API key
-- `your_google_gemini_api_key_here` → Your Google Gemini API key
+- `your_google_gemini_api_key_here` → Your Google Gemini API key (optional)
+
+**Note**: SMS API is hardcoded in the application - no configuration needed!
 
 ### Database Setup
 
