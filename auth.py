@@ -83,10 +83,12 @@ def login():
         password_valid = False
         
         if user.role == UserRole.STUDENT:
-            # For students, check if password matches "student123" (legacy) or hashed password (new unique passwords)
+            # For students: Check last 4 digits of phone, legacy "student123", or hashed password
+            last_4_digits = formatted_phone[-4:]  # Get last 4 digits of phone
             password_valid = (
-                password == "student123" or 
-                check_password_hash(user.password_hash, password)
+                password == last_4_digits or  # Primary: Last 4 digits of phone
+                password == "student123" or   # Legacy: Old default password
+                (user.password_hash and check_password_hash(user.password_hash, password))  # Hashed password
             )
         else:
             # For teachers and super users, check hashed password
