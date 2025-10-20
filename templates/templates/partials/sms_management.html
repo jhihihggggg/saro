@@ -14,7 +14,12 @@
             </div>
             <div class="flex items-center space-x-4">
                 <div class="text-right">
-                    <div class="text-xs text-gray-500 uppercase tracking-wide">SMS Balance</div>
+                    <div class="flex items-center justify-end space-x-2 mb-1">
+                        <div class="text-xs text-gray-500 uppercase tracking-wide">SMS Balance</div>
+                        <button @click="loadBalance()" class="text-blue-500 hover:text-blue-700" title="Refresh balance">
+                            <i class="fas fa-sync-alt text-xs"></i>
+                        </button>
+                    </div>
                     <div class="text-2xl font-bold" :class="smsCount < 10 ? 'text-red-600' : 'text-green-600'" x-text="smsCount"></div>
                 </div>
             </div>
@@ -634,26 +639,45 @@ function smsManagement() {
 
         async loadBalance() {
             try {
-                // Try the authenticated endpoint first
-                let response = await fetch('/api/sms/balance');
+                console.log('🔍 Loading SMS balance...');
+                
+                // Try the authenticated endpoint first (with cache busting)
+                let response = await fetch('/api/sms/balance?_=' + Date.now(), {
+                    credentials: 'include',
+                    cache: 'no-cache'
+                });
+                
+                console.log('Auth endpoint response status:', response.status);
                 
                 // If auth fails, try the no-auth endpoint
-                if (!response.ok && response.status === 401) {
-                    console.log('Auth failed, trying balance-check endpoint');
-                    response = await fetch('/api/sms/balance-check');
+                if (!response.ok) {
+                    console.log('⚠️ Auth failed, trying balance-check endpoint');
+                    response = await fetch('/api/sms/balance-check?_=' + Date.now(), {
+                        cache: 'no-cache'
+                    });
+                    console.log('Balance-check endpoint response status:', response.status);
                 }
                 
                 if (response.ok) {
                     const result = await response.json();
-                    const data = result.data || result;
-                    this.smsCount = data.balance || 0;
-                    console.log('SMS Balance loaded:', this.smsCount);
+                    console.log('📦 Full response:', result);
+                    
+                    // Handle different response structures
+                    let balance = 0;
+                    if (result.data && typeof result.data.balance !== 'undefined') {
+                        balance = result.data.balance;
+                    } else if (typeof result.balance !== 'undefined') {
+                        balance = result.balance;
+                    }
+                    
+                    this.smsCount = balance;
+                    console.log('✅ SMS Balance loaded:', this.smsCount);
                 } else {
-                    console.error('Failed to load balance - Status:', response.status);
+                    console.error('❌ Failed to load balance - Status:', response.status);
                     this.smsCount = 0;
                 }
             } catch (error) {
-                console.error('Failed to load balance:', error);
+                console.error('❌ Failed to load balance - Error:', error);
                 this.smsCount = 0;
             }
         },
