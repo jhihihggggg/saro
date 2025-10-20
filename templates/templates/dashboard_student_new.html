@@ -1,278 +1,243 @@
 {% extends "base.html" %}
 
-{% block title %}Student Dashboard - Student Nursing Center{% endblock %}
-
-{% block extra_head %}
-<script src="https://unpkg.com/htmx.org@1.9.6"></script>
-<script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-{% endblock %}
+{% block title %}Student Dashboard - GS Student Nursing Center{% endblock %}
 
 {% block content %}
-<div x-data="studentDashboard()" class="flex h-screen bg-gray-50">
+<div class="min-h-screen bg-gray-50">
+    <!-- Mobile sidebar overlay -->
+    <div id="sidebarOverlay" class="fixed inset-0 z-40 md:hidden hidden" onclick="toggleSidebar()">
+        <div class="fixed inset-0 bg-gray-600 bg-opacity-75"></div>
+    </div>
+
     <!-- Sidebar -->
-    <div class="w-64 bg-white shadow-lg border-r border-gray-200" :class="{ '-translate-x-full': !sidebarOpen }" 
-         x-transition:enter="transition ease-out duration-300"
-         x-transition:enter-start="-translate-x-full"
-         x-transition:enter-end="translate-x-0"
-         x-transition:leave="transition ease-in duration-300"
-         x-transition:leave-start="translate-x-0"
-         x-transition:leave-end="-translate-x-full">
-        
-        <!-- Sidebar Header -->
-        <div class="p-6 border-b border-gray-200">
+    <div id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform -translate-x-full transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:inset-0">
+        <div class="flex items-center justify-center h-16 bg-indigo-600">
             <div class="flex items-center">
-                <div class="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-600 rounded-xl flex items-center justify-center">
-                    <i class="fas fa-user-graduate text-white text-lg"></i>
-                </div>
-                <div class="ml-3">
-                    <h2 class="text-lg font-semibold text-gray-900">Student Portal</h2>
-                    <p class="text-sm text-gray-600">{{ user.first_name }} {{ user.last_name }}</p>
-                </div>
+                <i class="fas fa-graduation-cap text-white text-2xl mr-2"></i>
+                <h1 class="text-white text-xl font-bold">Student Portal</h1>
             </div>
         </div>
-
-        <!-- Navigation Menu -->
-        <nav class="mt-6">
-            <div class="px-3 space-y-1">
-                <template x-for="item in menuItems" :key="item.id">
-                    <button 
-                        @click="activeSection = item.id"
-                        :class="{
-                            'bg-green-50 border-r-2 border-green-500 text-green-700': activeSection === item.id,
-                            'text-gray-600 hover:bg-gray-50 hover:text-gray-900': activeSection !== item.id
-                        }"
-                        class="w-full flex items-center px-3 py-2 text-sm font-medium rounded-l-md transition-colors duration-200">
-                        <i :class="item.icon" class="mr-3 text-lg"></i>
-                        <span x-text="item.title"></span>
-                    </button>
-                </template>
-            </div>
+        
+        <nav class="mt-5 px-2">
+            <a href="#dashboard" data-section="dashboard" class="nav-item group flex items-center px-2 py-2 text-base font-medium rounded-md text-indigo-600 bg-indigo-100 mb-1">
+                <i class="fas fa-home mr-3 h-6 w-6"></i>
+                Dashboard
+            </a>
+            <a href="#monthly-exams" data-section="monthly-exams" class="nav-item group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900 mb-1">
+                <i class="fas fa-clipboard-list mr-3 h-6 w-6"></i>
+                Monthly Exams
+            </a>
+            <a href="#online-resources" data-section="online-resources" class="nav-item group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900 mb-1">
+                <i class="fas fa-book mr-3 h-6 w-6"></i>
+                Online Resources
+            </a>
+            <a href="#ai-solver" data-section="ai-solver" class="nav-item group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900 mb-1">
+                <i class="fas fa-robot mr-3 h-6 w-6"></i>
+                AI Solver
+            </a>
         </nav>
     </div>
 
-    <!-- Main Content -->
-    <div class="flex-1 flex flex-col overflow-hidden">
-        <!-- Header -->
-        <header class="bg-white shadow-sm border-b border-gray-200">
-            <div class="flex items-center justify-between px-6 py-4">
-                <div class="flex items-center">
-                    <!-- Mobile menu button -->
-                    <button @click="sidebarOpen = !sidebarOpen" class="md:hidden mr-4 p-2 rounded-md text-gray-400 hover:bg-gray-100">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    
-                    <div>
-                        <h1 class="text-xl font-semibold text-gray-900">Student Portal</h1>
-                        <p class="text-sm text-gray-600">Student Nursing Center</p>
-                    </div>
-                </div>
+    <!-- Main content -->
+    <div class="md:pl-64 flex flex-col flex-1">
+        <!-- Top navigation -->
+        <div class="sticky top-0 z-10 flex justify-between items-center bg-white shadow-sm px-4 py-3">
+            <button type="button" id="sidebarToggle" class="md:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100" onclick="toggleSidebar()">
+                <i class="fas fa-bars h-6 w-6"></i>
+            </button>
+            <div class="flex-1"></div>
+            <button onclick="window.location.href='/logout'" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700">
+                <i class="fas fa-sign-out-alt mr-2"></i>
+                Logout
+            </button>
+        </div>
 
-                <!-- Header Actions -->
-                <div class="flex items-center space-x-4">
-                    <!-- Theme Toggle -->
-                    <button @click="toggleTheme()" class="p-2 rounded-md text-gray-400 hover:bg-gray-100">
-                        <i :class="isDark ? 'fas fa-sun' : 'fas fa-moon'"></i>
-                    </button>
-                    
-                    <!-- Logout -->
-                    <button onclick="logout()" class="btn-danger">
-                        <i class="fas fa-sign-out-alt mr-2"></i>Logout
-                    </button>
-                </div>
-            </div>
-        </header>
-
-        <!-- Main Content Area -->
-        <main class="flex-1 overflow-y-auto p-6">
-            <!-- Dashboard Overview -->
-            <div x-show="activeSection === 'dashboard'" x-transition>
-                <!-- Welcome Header -->
-                <div class="mb-8 p-6 rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-xl">
-                    <h2 class="text-3xl md:text-4xl font-bold mb-2">
-                        স্বাগতম, {{ user.first_name }} {{ user.last_name }}!
-                    </h2>
-                    <p class="text-blue-100 text-lg" x-text="studentBatch ? `${studentBatch.name} - ${studentBatch.subject}` : 'No batch assigned'"></p>
-                </div>
-
-                <!-- Stats Cards -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div class="bg-white/80 backdrop-blur border-0 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-xl p-6">
-                        <div class="flex items-center justify-between mb-4">
-                            <div class="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg">
-                                <i class="fas fa-file-alt text-white text-xl"></i>
-                            </div>
-                            <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-semibold">Total</span>
-                        </div>
-                        <div class="text-3xl font-bold text-gray-900 mb-1" x-text="examResults.length"></div>
-                        <p class="text-sm text-gray-600">পরীক্ষা সম্পন্ন</p>
-                    </div>
-
-                    <div class="bg-white/80 backdrop-blur border-0 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-xl p-6">
-                        <div class="flex items-center justify-between mb-4">
-                            <div class="p-3 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg">
-                                <i class="fas fa-chart-line text-white text-xl"></i>
-                            </div>
-                            <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-semibold">Average</span>
-                        </div>
-                        <div class="text-3xl font-bold text-gray-900 mb-1" x-text="averageMarks + '%'"></div>
-                        <p class="text-sm text-gray-600">গড় নম্বর</p>
-                    </div>
-
-                    <div class="bg-white/80 backdrop-blur border-0 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-xl p-6">
-                        <div class="flex items-center justify-between mb-4">
-                            <div class="p-3 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg">
-                                <i class="fas fa-calendar-check text-white text-xl"></i>
-                            </div>
-                            <span class="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-semibold">Present</span>
-                        </div>
-                        <div class="text-3xl font-bold text-gray-900 mb-1" x-text="attendancePercentage + '%'"></div>
-                        <p class="text-sm text-gray-600">উপস্থিতি (<span x-text="attendanceRecords.length"></span>)</p>
-                    </div>
-
-                    <div class="bg-white/80 backdrop-blur border-0 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-xl p-6">
-                        <div class="flex items-center justify-between mb-4">
-                            <div class="p-3 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg">
-                                <i class="fas fa-calendar text-white text-xl"></i>
-                            </div>
-                            <span class="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-semibold">Upcoming</span>
-                        </div>
-                        <div class="text-3xl font-bold text-gray-900 mb-1" x-text="upcomingExams.length"></div>
-                        <p class="text-sm text-gray-600">আসন্ন পরীক্ষা</p>
-                    </div>
-                </div>
+        <main class="flex-1 p-4 md:p-6">
+            <!-- Welcome Header -->
+            <div class="mb-6">
+                <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Welcome, <span id="studentName">{{ user.first_name if user else 'Student' }}</span>!</h1>
+                <p class="mt-1 text-sm text-gray-600">Your Academic Dashboard</p>
             </div>
 
-            <!-- Exam Results -->
-            <div x-show="activeSection === 'results'" x-transition>
-                <h2 class="text-2xl font-bold text-gray-900 mb-6">Exam Results</h2>
-                
-                <div x-show="examResults.length === 0" class="text-center py-12">
-                    <i class="fas fa-trophy text-6xl text-gray-400 mb-4"></i>
-                    <p class="text-gray-600">No exam results yet</p>
-                </div>
-
-                <div x-show="examResults.length > 0" class="space-y-4">
-                    <template x-for="result in examResults" :key="result.id">
-                        <div class="card card-hover">
-                            <div class="flex justify-between items-start mb-3">
-                                <div>
-                                    <h3 class="font-semibold text-gray-900" x-text="result.examTitle"></h3>
-                                    <p class="text-sm text-gray-600" x-text="result.examSubject"></p>
+            <!-- Dashboard Section -->
+            <div id="dashboardSection" class="content-section">
+                <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+                    <div class="bg-gradient-to-br from-indigo-500 to-indigo-600 overflow-hidden shadow-lg rounded-lg text-white">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-clipboard-list text-3xl"></i>
                                 </div>
-                                <span :class="{
-                                    'badge-success': (result.marks || result.manualMarks || 0) / result.totalMarks >= 0.6,
-                                    'badge-danger': (result.marks || result.manualMarks || 0) / result.totalMarks < 0.6
-                                }" 
-                                class="badge" 
-                                x-text="`${result.marks || result.manualMarks || 0}/${result.totalMarks}`"></span>
-                            </div>
-                            <div class="flex items-center justify-between text-sm">
-                                <span class="text-gray-600" x-text="formatDate(result.submittedAt)"></span>
-                                <span :class="{
-                                    'text-green-600': Math.round(((result.marks || result.manualMarks || 0) / result.totalMarks) * 100) >= 60,
-                                    'text-red-600': Math.round(((result.marks || result.manualMarks || 0) / result.totalMarks) * 100) < 60
-                                }" 
-                                class="font-semibold" 
-                                x-text="Math.round(((result.marks || result.manualMarks || 0) / result.totalMarks) * 100) + '%'"></span>
-                            </div>
-                            <div x-show="result.feedback" class="mt-3 p-3 rounded bg-blue-50">
-                                <p class="text-sm font-medium mb-1">Teacher's Feedback:</p>
-                                <p class="text-sm text-gray-700" x-text="result.feedback"></p>
-                            </div>
-                            <div x-show="result.rank" class="mt-2">
-                                <span class="badge badge-info">Rank: #<span x-text="result.rank"></span></span>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-indigo-100">Total Exams</p>
+                                    <p class="text-2xl font-bold" id="totalExams">0</p>
+                                </div>
                             </div>
                         </div>
-                    </template>
+                    </div>
+
+                    <div class="bg-gradient-to-br from-green-500 to-green-600 overflow-hidden shadow-lg rounded-lg text-white">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-chart-line text-3xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-green-100">Average Score</p>
+                                    <p class="text-2xl font-bold" id="avgScore">-</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gradient-to-br from-blue-500 to-blue-600 overflow-hidden shadow-lg rounded-lg text-white">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-book text-3xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-blue-100">Resources</p>
+                                    <p class="text-2xl font-bold" id="totalResources">0</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gradient-to-br from-purple-500 to-purple-600 overflow-hidden shadow-lg rounded-lg text-white">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-robot text-3xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-purple-100">AI Questions</p>
+                                    <p class="text-2xl font-bold" id="totalQuestions">0</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white shadow-lg rounded-lg p-6">
+                    <h3 class="text-xl font-bold text-gray-900 mb-6">📚 Quick Access</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <button onclick="showSection('monthly-exams')" class="p-6 border-2 border-indigo-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 hover:shadow-lg transition transform hover:scale-105">
+                            <i class="fas fa-clipboard-list text-4xl text-indigo-600 mb-3 block"></i>
+                            <p class="font-semibold text-gray-900">View My Exams</p>
+                            <p class="text-sm text-gray-500 mt-2">Check monthly exam results</p>
+                        </button>
+                        <button onclick="showSection('online-resources')" class="p-6 border-2 border-blue-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 hover:shadow-lg transition transform hover:scale-105">
+                            <i class="fas fa-book text-4xl text-blue-600 mb-3 block"></i>
+                            <p class="font-semibold text-gray-900">Study Materials</p>
+                            <p class="text-sm text-gray-500 mt-2">Download books & resources</p>
+                        </button>
+                        <button onclick="showSection('ai-solver')" class="p-6 border-2 border-purple-200 rounded-lg hover:border-purple-500 hover:bg-purple-50 hover:shadow-lg transition transform hover:scale-105">
+                            <i class="fas fa-robot text-4xl text-purple-600 mb-3 block"></i>
+                            <p class="font-semibold text-gray-900">AI Question Solver</p>
+                            <p class="text-sm text-gray-500 mt-2">Get instant help with Praggo AI</p>
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <!-- Monthly Exams -->
-            <div x-show="activeSection === 'monthlyExams'" x-transition>
+            <!-- Monthly Exams Section -->
+            <div id="monthly-examsSection" class="content-section hidden">
                 {% include 'partials/student_monthly_exams.html' %}
             </div>
 
-            <!-- AI Solver -->
-            <div x-show="activeSection === 'ai-solver'" x-transition>
-                {% include 'partials/ai_solver.html' %}
+            <!-- Online Resources Section -->
+            <div id="online-resourcesSection" class="content-section hidden">
+                {% include 'partials/student_documents.html' %}
             </div>
 
-            <!-- Online Exams -->
-            <div x-show="activeSection === 'online-exam'" x-transition>
-                {% include 'partials/online_exam_list.html' %}
+            <!-- AI Solver Section -->
+            <div id="ai-solverSection" class="content-section hidden">
+                {% include 'partials/student_ai_solver.html' %}
             </div>
         </main>
     </div>
 </div>
 
 <script>
-function studentDashboard() {
-    return {
-        activeSection: 'dashboard',
-        sidebarOpen: true,
-        isDark: false,
-        studentBatch: null,
-        examResults: [],
-        upcomingExams: [],
-        attendanceRecords: [],
-        monthlyExams: [],
-        menuItems: [
-            { id: 'dashboard', title: 'Dashboard', icon: 'fas fa-tachometer-alt' },
-            { id: 'results', title: 'Results', icon: 'fas fa-chart-bar' },
-            { id: 'monthlyExams', title: 'Monthly Exams', icon: 'fas fa-calendar-alt' },
-            { id: 'ai-solver', title: 'AI Solver', icon: 'fas fa-brain' },
-            { id: 'online-exam', title: 'Online Exams', icon: 'fas fa-laptop' }
-        ],
+// Toggle sidebar for mobile
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    sidebar.classList.toggle('-translate-x-full');
+    overlay.classList.toggle('hidden');
+}
 
-        get averageMarks() {
-            const gradedResults = this.examResults.filter(r => r.marks !== null || r.manualMarks !== null);
-            if (gradedResults.length === 0) return 0;
-            const sum = gradedResults.reduce((sum, r) => sum + (r.marks || r.manualMarks || 0), 0);
-            return Math.round(sum / gradedResults.length);
-        },
-
-        get attendancePercentage() {
-            if (this.attendanceRecords.length === 0) return 0;
-            const presentCount = this.attendanceRecords.filter(r => r.status === 'present').length;
-            return Math.round((presentCount / this.attendanceRecords.length) * 100);
-        },
-
-        init() {
-            this.loadStudentData();
-        },
-
-        async loadStudentData() {
-            try {
-                // Load all student data in parallel
-                const [batchResponse, resultsResponse, examsResponse, attendanceResponse, monthlyResponse] = await Promise.all([
-                    fetch('/api/student/batch'),
-                    fetch('/api/student/exam-results'),
-                    fetch('/api/student/upcoming-exams'),
-                    fetch('/api/student/attendance'),
-                    fetch('/api/student/monthly-exams')
-                ]);
-
-                this.studentBatch = batchResponse.ok ? await batchResponse.json() : null;
-                this.examResults = resultsResponse.ok ? await resultsResponse.json() : [];
-                this.upcomingExams = examsResponse.ok ? await examsResponse.json() : [];
-                this.attendanceRecords = attendanceResponse.ok ? await attendanceResponse.json() : [];
-                this.monthlyExams = monthlyResponse.ok ? await monthlyResponse.json() : [];
-            } catch (error) {
-                console.error('Failed to load student data:', error);
-                showToast('Failed to load data', 'error');
-            }
-        },
-
-        toggleTheme() {
-            this.isDark = !this.isDark;
-            document.documentElement.classList.toggle('dark', this.isDark);
-            localStorage.setItem('theme', this.isDark ? 'dark' : 'light');
-        },
-
-        formatDate(dateString) {
-            return new Date(dateString).toLocaleDateString();
-        }
+// Navigation
+function showSection(sectionName) {
+    document.querySelectorAll('.content-section').forEach(section => {
+        section.classList.add('hidden');
+    });
+    
+    const targetSection = document.getElementById(sectionName + 'Section');
+    if (targetSection) {
+        targetSection.classList.remove('hidden');
+    }
+    
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('text-indigo-600', 'bg-indigo-100');
+        item.classList.add('text-gray-600');
+    });
+    
+    const activeNav = document.querySelector(\`[data-section="\${sectionName}"]\`);
+    if (activeNav) {
+        activeNav.classList.remove('text-gray-600');
+        activeNav.classList.add('text-indigo-600', 'bg-indigo-100');
+    }
+    
+    if (window.innerWidth < 768) {
+        toggleSidebar();
     }
 }
+
+document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', function(e) {
+        e.preventDefault();
+        const section = this.getAttribute('data-section');
+        showSection(section);
+    });
+});
+
+function loadDashboardStats() {
+    fetch('/api/documents/?include_inactive=true')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.data && data.data.documents) {
+                document.getElementById('totalResources').textContent = data.data.documents.length;
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    
+    try {
+        const aiHistory = JSON.parse(localStorage.getItem('aiQuestionHistory') || '[]');
+        document.getElementById('totalQuestions').textContent = aiHistory.length;
+    } catch (e) {
+        document.getElementById('totalQuestions').textContent = '0';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadDashboardStats();
+});
 </script>
+
+<style>
+.content-section {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.nav-item {
+    transition: all 0.2s ease;
+}
+</style>
 {% endblock %}

@@ -1,281 +1,175 @@
-<!-- Student AI Solver - Ask Questions to AI -->
-<div class="p-4 lg:p-6">
+<!-- Student AI Solver - Praggo AI Integration -->
+<div class="bg-white shadow-lg rounded-lg p-6">
     <div class="mb-6">
         <h2 class="text-2xl font-bold text-gray-800 mb-2">🤖 AI Question Solver</h2>
-        <p class="text-gray-600">Ask any academic question and get instant AI-powered answers</p>
+        <p class="text-gray-600">Ask questions and get instant help powered by Praggo AI</p>
     </div>
 
-    <!-- Question Input -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Your Question</label>
-            <textarea id="studentQuestion" rows="4" 
-                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Example: Explain Newton's second law of motion with examples..."></textarea>
-        </div>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Subject (Optional)</label>
-                <select id="studentSubject" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                    <option value="">Select Subject</option>
-                    <option value="Mathematics">Mathematics</option>
-                    <option value="Physics">Physics</option>
-                    <option value="Chemistry">Chemistry</option>
-                    <option value="Biology">Biology</option>
-                    <option value="English">English</option>
-                    <option value="Bengali">Bengali</option>
-                    <option value="History">History</option>
-                    <option value="Geography">Geography</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Difficulty Level</label>
-                <select id="studentDifficulty" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                    <option value="easy">Easy</option>
-                    <option value="medium" selected>Medium</option>
-                    <option value="hard">Hard</option>
-                </select>
-            </div>
-        </div>
-        
-        <button onclick="studentAISolver.askQuestion()" id="askButton"
-            class="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed">
-            <i class="fas fa-paper-plane mr-2"></i>Ask AI
-        </button>
+    <div class="mb-6">
+        <label class="block text-sm font-medium text-gray-700 mb-2">Your Question</label>
+        <textarea id="questionInput" rows="4" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Type your question here... (e.g., Solve x² + 5x + 6 = 0)"></textarea>
     </div>
 
-    <!-- Answer Display -->
-    <div id="answerContainer" class="hidden bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg shadow-md p-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-4">
-            <i class="fas fa-robot text-blue-600 mr-2"></i>AI Answer
-        </h3>
-        <div id="answerContent" class="prose max-w-none">
-            <!-- AI answer will appear here -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Subject</label>
+            <select id="subjectSelect" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                <option value="Mathematics">Mathematics</option>
+                <option value="Physics">Physics</option>
+                <option value="Chemistry">Chemistry</option>
+                <option value="Biology">Biology</option>
+            </select>
         </div>
-        <div class="mt-4 flex gap-2">
-            <button onclick="studentAISolver.copyAnswer()" class="px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg text-sm font-medium transition">
-                <i class="fas fa-copy mr-2"></i>Copy Answer
-            </button>
-            <button onclick="studentAISolver.clearAnswer()" class="px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg text-sm font-medium transition">
-                <i class="fas fa-trash mr-2"></i>Clear
-            </button>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Difficulty</label>
+            <select id="difficultySelect" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+            </select>
         </div>
     </div>
 
-    <!-- Recent Questions History -->
-    <div class="mt-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-4">📝 Recent Questions</h3>
-        <div id="questionHistory" class="space-y-3">
-            <p class="text-gray-500 text-sm">No recent questions yet. Ask your first question above!</p>
-        </div>
+    <button onclick="askQuestion()" id="askBtn" class="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 font-medium shadow-lg transform hover:scale-105 transition">
+        <i class="fas fa-paper-plane mr-2"></i>
+        Get Answer
+    </button>
+
+    <div id="answerContainer" class="hidden mt-6 p-6 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-lg border border-purple-200">
+        <h3 class="text-lg font-semibold text-gray-900 mb-3">💡 Answer:</h3>
+        <div id="answerContent" class="prose max-w-none text-gray-800"></div>
+    </div>
+
+    <div class="mt-8">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">📚 Question History</h3>
+        <div id="historyContainer" class="space-y-3"></div>
     </div>
 </div>
 
 <script>
-(function() {
-    var studentAISolver = {
-        history: [],
-        currentAnswer: '',
-        
-        init: function() {
-            this.loadHistory();
-        },
-        
-        askQuestion: function() {
-            var question = document.getElementById('studentQuestion').value.trim();
-            var subject = document.getElementById('studentSubject').value;
-            var difficulty = document.getElementById('studentDifficulty').value;
-            var askButton = document.getElementById('askButton');
-            var answerContainer = document.getElementById('answerContainer');
-            var answerContent = document.getElementById('answerContent');
-            
-            if (!question) {
-                alert('Please enter a question');
-                return;
-            }
-            
-            // Show loading
-            askButton.disabled = true;
-            askButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Thinking...';
-            answerContainer.classList.remove('hidden');
-            answerContent.innerHTML = '<div class="text-center py-8"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div><p class="text-gray-600">AI is thinking...</p></div>';
-            
-            // Prepare request
-            var requestData = {
-                question: question,
-                subject: subject || 'General',
-                difficulty: difficulty,
-                student_mode: true
-            };
-            
-            // Call AI API
-            fetch('/api/ai/ask-question', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestData)
-            })
-            .then(function(response) { return response.json(); })
-            .then(function(data) {
-                askButton.disabled = false;
-                askButton.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Ask AI';
-                
-                if (data.success && data.data && data.data.answer) {
-                    var answer = data.data.answer;
-                    studentAISolver.currentAnswer = answer;
-                    studentAISolver.displayAnswer(answer);
-                    studentAISolver.addToHistory(question, answer, subject);
-                } else {
-                    answerContent.innerHTML = '<div class="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded-lg"><p><strong>Note:</strong> AI feature requires Google Gemini API key to be configured by your teacher.</p><p class="mt-2 text-sm">Mock answer for demo purposes:</p><p class="mt-2">' + studentAISolver.getMockAnswer(question) + '</p></div>';
-                    studentAISolver.currentAnswer = studentAISolver.getMockAnswer(question);
-                    studentAISolver.addToHistory(question, studentAISolver.currentAnswer, subject);
-                }
-            })
-            .catch(function(error) {
-                console.error('Error asking AI:', error);
-                askButton.disabled = false;
-                askButton.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Ask AI';
-                
-                // Show mock answer on error
-                var mockAnswer = studentAISolver.getMockAnswer(question);
-                answerContent.innerHTML = '<div class="bg-blue-100 border border-blue-400 text-blue-800 px-4 py-3 rounded-lg"><p><strong>Demo Mode:</strong> Showing sample answer (AI API not configured)</p></div><div class="mt-4 text-gray-800 whitespace-pre-wrap">' + mockAnswer + '</div>';
-                studentAISolver.currentAnswer = mockAnswer;
-                studentAISolver.addToHistory(question, mockAnswer, subject);
-            });
-        },
-        
-        getMockAnswer: function(question) {
-            return "This is a sample AI answer. To get real AI-powered answers:\n\n" +
-                   "1. Understanding the Question:\n" +
-                   "Your question: \"" + question + "\"\n\n" +
-                   "2. Key Points:\n" +
-                   "• This feature uses AI to provide detailed explanations\n" +
-                   "• Real answers will be generated when AI is configured\n" +
-                   "• You can ask about any academic topic\n\n" +
-                   "3. Next Steps:\n" +
-                   "• Try asking more specific questions\n" +
-                   "• Include subject context for better answers\n" +
-                   "• Use this tool for homework help and concept clarification\n\n" +
-                   "Note: This is a demo answer. Real AI answers will be more detailed and specific to your question.";
-        },
-        
-        displayAnswer: function(answer) {
-            var answerContent = document.getElementById('answerContent');
-            var formattedAnswer = answer.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-            answerContent.innerHTML = '<div class="text-gray-800 whitespace-pre-wrap">' + formattedAnswer + '</div>';
-        },
-        
-        copyAnswer: function() {
-            if (this.currentAnswer) {
-                navigator.clipboard.writeText(this.currentAnswer).then(function() {
-                    alert('Answer copied to clipboard!');
-                }).catch(function() {
-                    alert('Failed to copy answer');
-                });
-            }
-        },
-        
-        clearAnswer: function() {
-            document.getElementById('answerContainer').classList.add('hidden');
-            document.getElementById('studentQuestion').value = '';
-            this.currentAnswer = '';
-        },
-        
-        addToHistory: function(question, answer, subject) {
-            var historyItem = {
-                question: question,
-                answer: answer,
-                subject: subject || 'General',
-                timestamp: new Date().toISOString()
-            };
-            
-            this.history.unshift(historyItem);
-            if (this.history.length > 10) {
-                this.history.pop();
-            }
-            
-            this.saveHistory();
-            this.renderHistory();
-        },
-        
-        renderHistory: function() {
-            var container = document.getElementById('questionHistory');
-            
-            if (this.history.length === 0) {
-                container.innerHTML = '<p class="text-gray-500 text-sm">No recent questions yet. Ask your first question above!</p>';
-                return;
-            }
-            
-            var html = '';
-            for (var i = 0; i < this.history.length; i++) {
-                var item = this.history[i];
-                var date = new Date(item.timestamp).toLocaleDateString();
-                var time = new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                
-                html += '<div class="bg-white rounded-lg shadow p-4 hover:shadow-md transition cursor-pointer" onclick="studentAISolver.viewHistoryItem(' + i + ')">';
-                html += '  <div class="flex items-start justify-between mb-2">';
-                html += '    <div class="flex-1">';
-                html += '      <p class="font-medium text-gray-900 text-sm line-clamp-2">' + item.question + '</p>';
-                html += '    </div>';
-                html += '    <span class="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">' + item.subject + '</span>';
-                html += '  </div>';
-                html += '  <p class="text-xs text-gray-500"><i class="far fa-clock mr-1"></i>' + date + ' at ' + time + '</p>';
-                html += '</div>';
-            }
-            
-            container.innerHTML = html;
-        },
-        
-        viewHistoryItem: function(index) {
-            var item = this.history[index];
-            document.getElementById('studentQuestion').value = item.question;
-            document.getElementById('studentSubject').value = item.subject;
-            this.currentAnswer = item.answer;
-            this.displayAnswer(item.answer);
-            document.getElementById('answerContainer').classList.remove('hidden');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        },
-        
-        saveHistory: function() {
-            try {
-                localStorage.setItem('studentAIHistory', JSON.stringify(this.history));
-            } catch (e) {
-                console.error('Error saving history:', e);
-            }
-        },
-        
-        loadHistory: function() {
-            try {
-                var saved = localStorage.getItem('studentAIHistory');
-                if (saved) {
-                    this.history = JSON.parse(saved);
-                    this.renderHistory();
-                }
-            } catch (e) {
-                console.error('Error loading history:', e);
-            }
+var aiQuestionHistory = [];
+
+function loadHistory() {
+    try {
+        var saved = localStorage.getItem('aiQuestionHistory');
+        if (saved) {
+            aiQuestionHistory = JSON.parse(saved);
+            renderHistory();
         }
-    };
+    } catch (e) {
+        console.error('Error loading history:', e);
+    }
+}
+
+function saveHistory() {
+    try {
+        localStorage.setItem('aiQuestionHistory', JSON.stringify(aiQuestionHistory));
+    } catch (e) {
+        console.error('Error saving history:', e);
+    }
+}
+
+function askQuestion() {
+    var question = document.getElementById('questionInput').value.trim();
+    var subject = document.getElementById('subjectSelect').value;
+    var difficulty = document.getElementById('difficultySelect').value;
     
-    // Initialize when section becomes visible
-    var observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-            if (mutation.target.id === 'ai-solverSection' && !mutation.target.classList.contains('hidden')) {
-                if (studentAISolver.history.length === 0) {
-                    studentAISolver.init();
-                }
-            }
-        });
-    });
-    
-    var section = document.getElementById('ai-solverSection');
-    if (section) {
-        observer.observe(section, { attributes: true, attributeFilter: ['class'] });
+    if (!question) {
+        alert('Please enter a question');
+        return;
     }
     
-    // Expose to global scope
-    window.studentAISolver = studentAISolver;
-})();
+    var btn = document.getElementById('askBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Processing...';
+    
+    fetch('/api/ai/ask-question', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            question: question,
+            subject: subject,
+            difficulty: difficulty
+        })
+    })
+    .then(function(response) { return response.json(); })
+    .then(function(data) {
+        if (data.success && data.data && data.data.answer) {
+            showAnswer(data.data.answer, question, subject);
+            
+            aiQuestionHistory.unshift({
+                question: question,
+                subject: subject,
+                answer: data.data.answer.substring(0, 200) + '...',
+                timestamp: new Date().toISOString()
+            });
+            
+            if (aiQuestionHistory.length > 10) {
+                aiQuestionHistory = aiQuestionHistory.slice(0, 10);
+            }
+            
+            saveHistory();
+            renderHistory();
+        } else {
+            alert('Error getting answer. Using demo mode.');
+            showDemoAnswer(question, subject);
+        }
+    })
+    .catch(function(error) {
+        console.error('Error:', error);
+        alert('Error connecting to AI. Showing demo answer.');
+        showDemoAnswer(question, subject);
+    })
+    .finally(function() {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Get Answer';
+    });
+}
+
+function showAnswer(answer, question, subject) {
+    var answerContainer = document.getElementById('answerContainer');
+    var answerContent = document.getElementById('answerContent');
+    
+    var html = '<div class="mb-4 p-3 bg-white rounded border border-purple-200">';
+    html += '<strong>Question:</strong> ' + question + '<br>';
+    html += '<strong>Subject:</strong> ' + subject;
+    html += '</div>';
+    html += '<div class="whitespace-pre-wrap">' + answer + '</div>';
+    
+    answerContent.innerHTML = html;
+    answerContainer.classList.remove('hidden');
+}
+
+function showDemoAnswer(question, subject) {
+    var demoAnswer = "This is a demo answer. In production, Praggo AI will provide detailed step-by-step solutions to your " + subject + " questions.\\n\\nFor the question: \\"" + question + "\\"\\n\\nThe AI would analyze the problem, break it down into steps, and provide a comprehensive solution with explanations.";
+    showAnswer(demoAnswer, question, subject);
+}
+
+function renderHistory() {
+    var container = document.getElementById('historyContainer');
+    if (aiQuestionHistory.length === 0) {
+        container.innerHTML = '<p class="text-gray-500 text-center py-4">No questions asked yet</p>';
+        return;
+    }
+    
+    var html = '';
+    for (var i = 0; i < aiQuestionHistory.length; i++) {
+        var item = aiQuestionHistory[i];
+        var date = new Date(item.timestamp);
+        html += '<div class="p-3 bg-gray-50 rounded-lg border border-gray-200">';
+        html += '<div class="flex justify-between items-start mb-2">';
+        html += '<span class="text-xs px-2 py-1 bg-purple-100 text-purple-800 rounded">' + item.subject + '</span>';
+        html += '<span class="text-xs text-gray-500">' + date.toLocaleDateString() + '</span>';
+        html += '</div>';
+        html += '<p class="text-sm font-medium text-gray-900">' + item.question + '</p>';
+        html += '</div>';
+    }
+    container.innerHTML = html;
+}
+
+if (document.getElementById('ai-solverSection')) {
+    setTimeout(function() {
+        loadHistory();
+    }, 100);
+}
 </script>
