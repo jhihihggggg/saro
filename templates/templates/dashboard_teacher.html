@@ -593,13 +593,19 @@ function teacherDashboard() {
 
         async generateRanking() {
             if (!this.selectedMonthlyExam) {
-                utils.showAlert('Please select a monthly exam first', 'warning');
+                if (window.utils) {
+                    window.utils.showToast('Please select a monthly exam first', 'warning');
+                } else {
+                    alert('Please select a monthly exam first');
+                }
                 return;
             }
 
             try {
                 console.log('🔄 Generating ranking for exam ID:', this.selectedMonthlyExam.id);
-                utils.showAlert('Generating rankings...', 'info');
+                if (window.utils) {
+                    window.utils.showToast('Generating rankings...', 'info');
+                }
                 
                 const response = await fetch(`/api/monthly-exams/${this.selectedMonthlyExam.id}/generate-ranking`, {
                     method: 'POST',
@@ -621,20 +627,36 @@ function teacherDashboard() {
                     // Refresh the comprehensive results to show the saved rankings
                     await this.viewComprehensiveResults();
                     
-                    utils.showAlert(`Final rankings generated and saved successfully! ${data.data.rankings_count} students ranked.`, 'success');
+                    if (window.utils) {
+                        window.utils.showToast(`Final rankings generated and saved successfully! ${data.data.rankings_count} students ranked.`, 'success');
+                    } else {
+                        alert(`Success! ${data.data.rankings_count} students ranked.`);
+                    }
                 } else {
                     const errorText = await response.text();
                     console.error('❌ Server error:', response.status, errorText);
                     try {
                         const error = JSON.parse(errorText);
-                        utils.showAlert('Failed to generate ranking: ' + (error.message || 'Unknown error'), 'error');
+                        if (window.utils) {
+                            window.utils.showToast('Failed to generate ranking: ' + (error.message || 'Unknown error'), 'error');
+                        } else {
+                            alert('Failed: ' + (error.message || 'Unknown error'));
+                        }
                     } catch {
-                        utils.showAlert(`Failed to generate ranking. Server returned status ${response.status}`, 'error');
+                        if (window.utils) {
+                            window.utils.showToast(`Failed to generate ranking. Server returned status ${response.status}`, 'error');
+                        } else {
+                            alert(`Failed. Status: ${response.status}`);
+                        }
                     }
                 }
             } catch (error) {
                 console.error('❌ Network/JavaScript error:', error);
-                utils.showAlert('Failed to generate ranking: ' + error.message, 'error');
+                if (window.utils) {
+                    window.utils.showToast('Failed to generate ranking: ' + error.message, 'error');
+                } else {
+                    alert('Failed: ' + error.message);
+                }
             }
         },
 
