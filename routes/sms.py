@@ -620,6 +620,32 @@ def get_sms_balance():
         return error_response(f'Failed to get SMS balance: {str(e)}', 500)
 
 
+@sms_bp.route('/balance-check', methods=['GET'])
+def get_sms_balance_noauth():
+    """Get teacher SMS balance without auth (for debugging)"""
+    try:
+        # Get Sample Teacher
+        teacher = User.query.filter_by(first_name='Sample', last_name='Teacher', role=UserRole.TEACHER).first()
+        
+        if not teacher:
+            return error_response('Teacher not found', 404)
+
+        total_sent = SmsLog.query.filter(
+            SmsLog.sent_by == teacher.id,
+            SmsLog.status == SmsStatus.SENT
+        ).count()
+
+        return success_response('SMS balance retrieved', {
+            'balance': teacher.sms_count or 0,
+            'total_sent': total_sent,
+            'teacher_name': teacher.full_name,
+            'teacher_phone': teacher.phone
+        })
+
+    except Exception as e:
+        return error_response(f'Failed to get SMS balance: {str(e)}', 500)
+
+
 @sms_bp.route('/balance/add', methods=['POST'])
 @login_required
 @require_role(UserRole.SUPER_USER)

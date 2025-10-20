@@ -634,10 +634,23 @@ function smsManagement() {
 
         async loadBalance() {
             try {
-                const response = await fetch('/api/sms/balance');
+                // Try the authenticated endpoint first
+                let response = await fetch('/api/sms/balance');
+                
+                // If auth fails, try the no-auth endpoint
+                if (!response.ok && response.status === 401) {
+                    console.log('Auth failed, trying balance-check endpoint');
+                    response = await fetch('/api/sms/balance-check');
+                }
+                
                 if (response.ok) {
-                    const data = await response.json();
+                    const result = await response.json();
+                    const data = result.data || result;
                     this.smsCount = data.balance || 0;
+                    console.log('SMS Balance loaded:', this.smsCount);
+                } else {
+                    console.error('Failed to load balance - Status:', response.status);
+                    this.smsCount = 0;
                 }
             } catch (error) {
                 console.error('Failed to load balance:', error);
