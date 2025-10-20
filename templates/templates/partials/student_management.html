@@ -113,6 +113,9 @@
                                     <button @click="resetPassword(student)" class="bg-yellow-500 hover:bg-yellow-600 text-white p-2 rounded-lg transition-colors duration-200" title="Reset Password">
                                         <i class="fas fa-key"></i>
                                     </button>
+                                    <button @click="archiveStudent(student)" class="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-lg transition-colors duration-200" title="Archive Student">
+                                        <i class="fas fa-archive"></i>
+                                    </button>
                                     <button @click="deleteStudent(student)" class="bg-red-500 hover:bg-red-600 text-white p-2 rounded-lg transition-colors duration-200" title="Delete Student">
                                         <i class="fas fa-trash"></i>
                                     </button>
@@ -752,6 +755,39 @@ function studentManagement() {
         deleteStudent(student) {
             this.studentToDelete = student;
             this.showDeleteModal = true;
+        },
+
+        async archiveStudent(student) {
+            const reason = prompt(`Archive "${student.firstName} ${student.lastName}"?\n\nOptional reason (press OK to continue):`);
+            
+            if (reason === null) {
+                // User cancelled
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/students/${student.id}/archive`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        reason: reason || 'Archived by teacher'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(result.message || 'Failed to archive student');
+                }
+                
+                this.showToast(`Student "${student.firstName} ${student.lastName}" archived successfully`, 'success');
+                await this.loadStudents();
+            } catch (error) {
+                console.error('Failed to archive student:', error);
+                this.showToast('Failed to archive student: ' + error.message, 'error');
+            }
         },
 
         async confirmDelete() {
