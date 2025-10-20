@@ -85,6 +85,8 @@ def get_students():
             student_data['isActive'] = student_data.get('is_active', True)
             student_data['guardianPhone'] = student_data.get('guardian_phone', '')
             student_data['guardianName'] = student_data.get('guardian_name', '')
+            student_data['motherName'] = student_data.get('mother_name', '')
+            student_data['address'] = student_data.get('address', '')
             student_data['school'] = student_data.get('address', '')
             
             students_data.append(student_data)
@@ -165,9 +167,10 @@ def create_student():
             email=data.get('email', '').strip() if data.get('email') else None,
             role=UserRole.STUDENT,
             date_of_birth=datetime.strptime(data['dateOfBirth'], '%Y-%m-%d').date() if data.get('dateOfBirth') else None,
-            address=data.get('school', '').strip() if data.get('school') else data.get('address', '').strip() if data.get('address') else None,
+            address=data.get('address', '').strip() if data.get('address') else data.get('school', '').strip() if data.get('school') else None,
             guardian_phone=phone,  # Set guardian phone to same as phoneNumber for SMS
             guardian_name=data.get('guardianName', '').strip() if data.get('guardianName') else None,
+            mother_name=data.get('motherName', '').strip() if data.get('motherName') else None,
             emergency_contact=data.get('emergencyContact', '').strip() if data.get('emergencyContact') else None,
             is_active=data.get('isActive', True)
         )
@@ -299,6 +302,9 @@ def update_student(student_id):
         if 'guardianName' in data:
             student.guardian_name = data['guardianName'].strip() if data['guardianName'] else None
         
+        if 'motherName' in data:
+            student.mother_name = data['motherName'].strip() if data['motherName'] else None
+        
         if 'emergencyContact' in data:
             student.emergency_contact = data['emergencyContact'].strip() if data['emergencyContact'] else None
         
@@ -325,6 +331,8 @@ def update_student(student_id):
         student_data['isActive'] = student_data.get('is_active', True)
         student_data['guardianPhone'] = student_data.get('guardian_phone', '')
         student_data['guardianName'] = student_data.get('guardian_name', '')
+        student_data['motherName'] = student_data.get('mother_name', '')
+        student_data['address'] = student_data.get('address', '')
         student_data['school'] = student_data.get('address', '')
         
         if student.batches:
@@ -621,6 +629,9 @@ def get_archived_students():
             student_data['phoneNumber'] = student_data.get('phoneNumber', '')
             student_data['guardianPhone'] = student_data.get('guardian_phone', '')
             student_data['guardianName'] = student_data.get('guardian_name', '')
+            student_data['motherName'] = student_data.get('mother_name', '')
+            student_data['address'] = student_data.get('address', '')
+            student_data['school'] = student_data.get('address', '')
             
             students_data.append(student_data)
         

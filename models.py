@@ -78,6 +78,7 @@ class User(db.Model):
     address = db.Column(db.Text, nullable=True)
     guardian_name = db.Column(db.String(200), nullable=True)
     guardian_phone = db.Column(db.String(20), nullable=True)
+    mother_name = db.Column(db.String(200), nullable=True)
     emergency_contact = db.Column(db.String(20), nullable=True)
     sms_count = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True)
