@@ -200,6 +200,8 @@ def create_student():
         student_data['isActive'] = student_data.get('is_active', True)
         student_data['guardianPhone'] = student_data.get('guardian_phone', '')
         student_data['guardianName'] = student_data.get('guardian_name', '')
+        student_data['motherName'] = student_data.get('mother_name', '')
+        student_data['address'] = student_data.get('address', '')
         student_data['school'] = student_data.get('address', '')
         
         if student.batches:
