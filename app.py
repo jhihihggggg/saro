@@ -38,7 +38,7 @@ def create_app(config_name=None):
     from routes.batches import batches_bp
     from routes.exams import exams_bp
     from routes.questions import questions_bp
-    from routes.fees import fees_bp
+    from routes.fees_new import fees_bp  # Using new rewritten fee routes
     from routes.sms import sms_bp
     from routes.sms_templates import sms_templates_bp
     from routes.attendance import attendance_bp

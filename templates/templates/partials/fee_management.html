@@ -315,19 +315,43 @@ function feeManager() {
         
         async loadFees() {
             try {
-                const response = await fetch(`/api/fees/monthly-load?batch_id=${this.selectedBatch}&year=${this.selectedYear}`, {
+                const response = await fetch(`/api/fees/load-monthly?batch_id=${this.selectedBatch}&year=${this.selectedYear}`, {
                     method: 'GET',
                     credentials: 'same-origin',
                     headers: { 'Content-Type': 'application/json' }
                 });
                 if (response.ok) {
-                    const data = await response.json();
-                    const feesList = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []);
-                    this.fees = {};
-                    feesList.forEach(fee => {
-                        this.fees[`${fee.student_id}_${fee.month}`] = fee;
-                    });
-                    console.log('Loaded fees:', Object.keys(this.fees).length);
+                    const result = await response.json();
+                    
+                    // New API format: { success: true, data: { fees: [...], batch_id, year } }
+                    if (result.success && result.data && result.data.fees) {
+                        this.fees = {};
+                        
+                        // Parse the new nested format
+                        result.data.fees.forEach(studentData => {
+                            const studentId = studentData.student_id;
+                            const months = studentData.months;
+                            
+                            // Convert each month's data to our flat structure
+                            for (let month = 1; month <= 12; month++) {
+                                const monthStr = String(month);
+                                const monthData = months[monthStr];
+                                const key = `${studentId}_${month}`;
+                                
+                                this.fees[key] = {
+                                    student_id: studentId,
+                                    month: month,
+                                    year: this.selectedYear,
+                                    amount: monthData.amount || 0,
+                                    fee_id: monthData.fee_id,
+                                    status: monthData.status,
+                                    isDirty: false
+                                };
+                            }
+                        });
+                        
+                        console.log('Loaded fees:', Object.keys(this.fees).length);
+                    }
                 }
             } catch (err) {
                 console.error('Error loading fees:', err);
@@ -384,15 +408,16 @@ function feeManager() {
                 for (const fee of dirtyFees) {
                     const payload = {
                         student_id: fee.student_id,
+                        batch_id: this.selectedBatch,
                         month: fee.month,
                         year: fee.year,
                         amount: fee.amount
                     };
                     
                     console.log('Saving fee:', payload);
-                    console.log('🔥 Calling endpoint: /api/fees/monthly-save');
+                    console.log('🔥 Calling endpoint: /api/fees/save-monthly');
                     
-                    const response = await fetch('/api/fees/monthly-save', {
+                    const response = await fetch('/api/fees/save-monthly', {
                         method: 'POST',
                         credentials: 'same-origin',
                         headers: { 'Content-Type': 'application/json' },
