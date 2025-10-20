@@ -598,14 +598,30 @@ function smsManagement() {
                     payload.template_id = this.selectedTemplateId;
                 }
 
-                const response = await fetch('/api/sms/send-bulk', {
+                console.log('📤 Sending bulk SMS with payload:', payload);
+
+                // Try authenticated endpoint first
+                let response = await fetch('/api/sms/send-bulk', {
                     method: 'POST',
+                    credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
 
+                // If auth fails, try no-auth endpoint
+                if (!response.ok && response.status === 403) {
+                    console.log('⚠️ Auth failed, trying send-bulk-noauth endpoint');
+                    response = await fetch('/api/sms/send-bulk-noauth', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                }
+
                 const result = await response.json();
-                if (response.ok) {
+                console.log('📨 SMS Send Result:', result);
+                
+                if (response.ok && result.success) {
                     const sentCount = result?.data?.sent ?? this.recipientCount;
                     showToast(`✅ SMS sent successfully to ${sentCount} recipients!`, 'success');
                     await this.loadBalance();
@@ -616,11 +632,13 @@ function smsManagement() {
                     this.recipientType = 'all';
                     this.recipientCount = 0;
                 } else {
-                    showToast('Failed to send SMS: ' + (result.message || 'Unknown error'), 'error');
+                    const errorMsg = result.error || result.message || 'Unknown error';
+                    console.error('❌ SMS Send Failed:', errorMsg);
+                    showToast('Failed to send SMS: ' + errorMsg, 'error');
                 }
             } catch (error) {
-                console.error('Failed to send SMS:', error);
-                showToast('Failed to send SMS', 'error');
+                console.error('❌ Failed to send SMS - Exception:', error);
+                showToast('Failed to send SMS: ' + error.message, 'error');
             } finally {
                 this.sending = false;
             }

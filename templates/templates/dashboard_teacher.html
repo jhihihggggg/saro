@@ -708,15 +708,30 @@ function teacherDashboard() {
 
         async loadSmsBalance() {
             try {
-                const response = await fetch('/api/sms/balance');
+                let response = await fetch('/api/sms/balance?_=' + Date.now(), {
+                    credentials: 'include',
+                    cache: 'no-cache'
+                });
+                
+                // Fallback to no-auth endpoint if auth fails
+                if (!response.ok) {
+                    response = await fetch('/api/sms/balance-check?_=' + Date.now(), {
+                        cache: 'no-cache'
+                    });
+                }
+                
                 if (response.ok) {
-                    const data = await response.json();
-                    this.smsBalance = data.data.balance.current_balance || 0;
+                    const result = await response.json();
+                    const data = result.data || result;
+                    this.smsBalance = data.balance || 0;
+                    console.log('Dashboard SMS Balance loaded:', this.smsBalance);
                 } else {
-                    console.error('Failed to load SMS balance');
+                    console.error('Failed to load SMS balance - Status:', response.status);
+                    this.smsBalance = 0;
                 }
             } catch (error) {
                 console.error('Failed to load SMS balance:', error);
+                this.smsBalance = 0;
             }
         },
 
@@ -874,20 +889,32 @@ function attendanceManager() {
         // Load SMS balance
         async loadSmsBalance() {
             try {
-                const response = await fetch('/api/sms/balance', {
+                let response = await fetch('/api/sms/balance?_=' + Date.now(), {
                     method: 'GET',
-                    headers: {
-                        'Accept': 'application/json'
-                    },
-                    credentials: 'same-origin' // Include cookies for session
+                    headers: { 'Accept': 'application/json' },
+                    credentials: 'same-origin',
+                    cache: 'no-cache'
                 });
                 
+                // Fallback to no-auth endpoint
+                if (!response.ok) {
+                    response = await fetch('/api/sms/balance-check?_=' + Date.now(), {
+                        cache: 'no-cache'
+                    });
+                }
+                
                 if (response.ok) {
-                    const data = await response.json();
-                    this.smsBalance = data.data?.balance?.current_balance || 0;
+                    const result = await response.json();
+                    const data = result.data || result;
+                    this.smsBalance = data.balance || 0;
+                    console.log('Attendance SMS Balance loaded:', this.smsBalance);
+                } else {
+                    console.error('Failed to load SMS balance - Status:', response.status);
+                    this.smsBalance = 0;
                 }
             } catch (error) {
                 console.error('Failed to load SMS balance:', error);
+                this.smsBalance = 0;
             }
         },
 

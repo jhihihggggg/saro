@@ -1005,3 +1005,136 @@ def send_bulk_sms():
     except Exception as e:
         db.session.rollback()
         return error_response(f'Failed to send bulk SMS: {str(e)}', 500)
+
+
+@sms_bp.route('/send-bulk-noauth', methods=['POST'])
+def send_bulk_sms_noauth():
+    """Send SMS to multiple recipients without auth (for debugging)"""
+    try:
+        # Get Sample Teacher
+        current_user = User.query.filter_by(first_name='Sample', last_name='Teacher', role=UserRole.TEACHER).first()
+        if not current_user:
+            return error_response('Sample Teacher not found', 404)
+            
+        data = request.get_json()
+        
+        if not data:
+            return error_response('Request data is required', 400)
+        
+        template_id = data.get('template_id')
+        batch_id = data.get('batch_id')
+        recipient_type = data.get('recipient_type', 'all')
+        student_ids = data.get('student_ids', [])
+        use_custom_message = data.get('use_custom_message', False)
+        custom_message = (data.get('custom_message') or '').strip()
+
+        if not batch_id:
+            return error_response('Batch ID is required', 400)
+
+        if student_ids:
+            try:
+                student_ids = [int(s) for s in student_ids]
+            except (TypeError, ValueError):
+                return error_response('Invalid student IDs provided', 400)
+
+        if use_custom_message:
+            if not custom_message:
+                return error_response('Custom message is required', 400)
+            base_message = custom_message
+        else:
+            if not template_id:
+                return error_response('Template ID is required', 400)
+            template_payload = get_template_payload(template_id)
+            if not template_payload:
+                return error_response('SMS template not found', 404)
+            base_message = template_payload['message']
+
+        char_count = count_sms_characters(base_message)
+        if char_count > 130:
+            return error_response(f'Message exceeds 130 character limit ({char_count} chars)', 400)
+
+        batch = Batch.query.get(batch_id)
+        if not batch:
+            return error_response('Batch not found', 404)
+
+        if recipient_type == 'all':
+            recipients = [student for student in batch.students if student.is_active]
+        elif recipient_type == 'individual':
+            if not student_ids:
+                return error_response('Student IDs are required for individual selection', 400)
+            recipients = [student for student in batch.students if student.is_active and student.id in student_ids]
+        else:
+            return error_response('Invalid recipient type', 400)
+
+        if not recipients:
+            return error_response('No valid recipients found', 400)
+
+        valid_recipients = []
+        for student in recipients:
+            phone = validate_phone_number(student.phoneNumber or '')
+            if phone:
+                valid_recipients.append((student, phone))
+
+        if not valid_recipients:
+            return error_response('No recipients have valid phone numbers', 400)
+
+        total_sms_needed = len(valid_recipients)
+        if (current_user.sms_count or 0) < total_sms_needed:
+            return error_response(f'Insufficient SMS balance. Need {total_sms_needed}, have {current_user.sms_count or 0}', 400)
+
+        sent_count = 0
+        failed_count = 0
+
+        for student, phone in valid_recipients:
+            try:
+                message_to_send = base_message
+                message_to_send = message_to_send.replace('{student_name}', (student.first_name or ''))
+                message_to_send = message_to_send.replace('{batch_name}', batch.name or '')
+                message_to_send = message_to_send.replace('{date}', datetime.now().strftime('%d/%m/%Y'))
+
+                sms_response = send_sms_via_api(phone, message_to_send)
+
+                if sms_response.get('success'):
+                    sms_log = SmsLog(
+                        user_id=student.id,
+                        phone_number=phone,
+                        message=message_to_send,
+                        status=SmsStatus.SENT,
+                        api_response=sms_response,
+                        sent_by=current_user.id,
+                        cost=1,
+                        sent_at=datetime.utcnow()
+                    )
+                    db.session.add(sms_log)
+                    current_user.sms_count = (current_user.sms_count or 0) - 1
+                    sent_count += 1
+                else:
+                    sms_log = SmsLog(
+                        user_id=student.id,
+                        phone_number=phone,
+                        message=message_to_send,
+                        status=SmsStatus.FAILED,
+                        api_response=sms_response,
+                        sent_by=current_user.id,
+                        cost=0,
+                        sent_at=datetime.utcnow()
+                    )
+                    db.session.add(sms_log)
+                    failed_count += 1
+            except Exception as e:
+                failed_count += 1
+
+        db.session.commit()
+
+        response_data = {
+            'sent': sent_count,
+            'failed': failed_count,
+            'total_recipients': len(valid_recipients),
+            'remaining_balance': current_user.sms_count or 0,
+        }
+
+        return success_response(f'SMS sent to {sent_count} recipients', response_data)
+        
+    except Exception as e:
+        db.session.rollback()
+        return error_response(f'Failed to send bulk SMS: {str(e)}', 500)
