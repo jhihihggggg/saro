@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Clearing Cache...</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-blue-500 to-purple-600 min-h-screen flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
+        <div class="text-center">
+            <!-- Animated Icon -->
+            <div class="mb-6">
+                <svg class="animate-spin h-16 w-16 mx-auto text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </div>
+
+            <h1 class="text-2xl font-bold text-gray-800 mb-4">🧹 Clearing Browser Cache</h1>
+            <p class="text-gray-600 mb-6">Please wait while we refresh your student dashboard...</p>
+
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+                <p class="text-sm text-blue-800">
+                    <strong>What's happening:</strong><br>
+                    Forcing browser to load the latest dashboard version
+                </p>
+            </div>
+
+            <div id="countdown" class="text-4xl font-bold text-blue-600 mb-4">3</div>
+            <p class="text-sm text-gray-500">Redirecting to student dashboard...</p>
+        </div>
+    </div>
+
+    <script>
+        // Clear all caches
+        if ('caches' in window) {
+            caches.keys().then(function(names) {
+                names.forEach(function(name) {
+                    caches.delete(name);
+                });
+            });
+        }
+
+        // Clear local storage
+        try {
+            localStorage.clear();
+            sessionStorage.clear();
+        } catch (e) {
+            console.log('Storage clear error:', e);
+        }
+
+        // Countdown and redirect
+        let count = 3;
+        const countdownEl = document.getElementById('countdown');
+        
+        const interval = setInterval(function() {
+            count--;
+            countdownEl.textContent = count;
+            
+            if (count === 0) {
+                clearInterval(interval);
+                countdownEl.textContent = '✅';
+                
+                // Add timestamp to force reload
+                const timestamp = new Date().getTime();
+                window.location.href = '/dashboard?v=' + timestamp + '&nocache=' + Math.random();
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

@@ -28,6 +28,11 @@ def index():
     # Not logged in, show landing page
     return render_template('index.html')
 
+@templates_bp.route('/clear-cache')
+def clear_cache():
+    """Force browser cache clear"""
+    return render_template('clear_cache.html')
+
 @templates_bp.route('/debug-fees')
 def debug_fees():
     """Debug page for fees feature"""
