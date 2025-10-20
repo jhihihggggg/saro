@@ -377,9 +377,9 @@
                             </div>
                             
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 uppercase tracking-wide">Password</label>
+                                <label class="block text-xs font-medium text-gray-600 uppercase tracking-wide">Password (Last 4 Digits)</label>
                                 <div class="flex items-center justify-between bg-white p-3 rounded-lg border">
-                                    <span class="font-mono text-lg text-gray-900" x-text="newStudentCredentials.password"></span>
+                                    <span class="font-mono text-2xl text-gray-900 font-bold" x-text="newStudentCredentials.password"></span>
                                     <button @click="copyToClipboard(newStudentCredentials.password)" class="text-blue-600 hover:text-blue-800">
                                         <i class="fas fa-copy"></i>
                                     </button>
@@ -387,10 +387,10 @@
                             </div>
                         </div>
                         
-                        <div class="mt-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded">
-                            <p class="text-sm text-yellow-800">
+                        <div class="mt-4 p-3 bg-green-50 border-l-4 border-green-400 rounded">
+                            <p class="text-sm text-green-800">
                                 <i class="fas fa-info-circle mr-1"></i>
-                                <strong>Important:</strong> <span x-text="newStudentCredentials.note"></span>
+                                <strong>How to Login:</strong> Use Parent Phone as username and Last 4 Digits of Phone as password
                             </p>
                         </div>
                     </div>
@@ -554,14 +554,13 @@ function studentManagement() {
 
         // Generate display password for viewing (same algorithm as backend)
         generateDisplayPassword(student) {
-            if (!student.firstName || !student.guardianPhone) {
+            if (!student.guardianPhone && !student.phoneNumber) {
                 return 'Not Available';
             }
             
-            // Use the same simple unique password algorithm
-            const cleanName = student.firstName.replace(/\s/g, '').substring(0, 6);
-            const phoneDigits = student.guardianPhone.replace(/\D/g, '').slice(-4);
-            return cleanName + phoneDigits;
+            // Password is last 4 digits of parent phone number
+            const phone = student.guardianPhone || student.phoneNumber;
+            return phone.slice(-4);  // Last 4 digits
         },
 
         async loadBatches() {
@@ -760,7 +759,7 @@ function studentManagement() {
                 this.newStudentCredentials = {
                     username: this.studentToReset.guardianPhone || this.studentToReset.phoneNumber,
                     password: result.data.newPassword,
-                    note: 'Student logs in with Parent Phone + this new password'
+                    note: 'Password is last 4 digits of parent phone number'
                 };
                 
                 // Close reset modal and show password modal

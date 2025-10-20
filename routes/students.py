@@ -105,14 +105,19 @@ def create_student():
         data = request.get_json()
         
         if not data:
+            print("ERROR: No data received")
             return error_response('Request data is required', 400)
+        
+        print(f"DEBUG: Received data: {data}")
         
         # Required fields
         required_fields = ['firstName', 'lastName']
         missing_fields = [field for field in required_fields if not data.get(field)]
         
         if missing_fields:
-            return error_response(f'Missing required fields: {", ".join(missing_fields)}', 400)
+            error_msg = f'Missing required fields: {", ".join(missing_fields)}'
+            print(f"ERROR: {error_msg}")
+            return error_response(error_msg, 400)
         
         # Use guardian phone as primary phone if student phone not provided
         guardian_phone = data.get('guardianPhone', '')
@@ -123,12 +128,16 @@ def create_student():
             # Validate guardian phone number
             phone = validate_phone(guardian_phone)
             if not phone:
-                return error_response('Invalid guardian phone number format', 400)
+                error_msg = f'Invalid guardian phone number format: {guardian_phone}'
+                print(f"ERROR: {error_msg}")
+                return error_response(error_msg, 400)
             
             # Check if guardian phone already exists
             existing_user = User.query.filter_by(phoneNumber=phone).first()
             if existing_user:
-                return error_response('User with this guardian phone number already exists', 409)
+                error_msg = 'User with this guardian phone number already exists'
+                print(f"ERROR: {error_msg} - Phone: {phone}")
+                return error_response(error_msg, 409)
         elif student_phone:
             # Fallback to student phone if no guardian phone
             phone = validate_phone(student_phone)
@@ -175,9 +184,10 @@ def create_student():
             is_active=data.get('isActive', True)
         )
         
-        # Generate unique password for student (students login with guardian phone + unique password)
-        unique_password = generate_password(8)  # Use the existing function
-        student.password_hash = generate_password_hash(unique_password)
+        # Generate password from last 4 digits of parent phone number
+        # Student login: Parent Phone Number (username) + Last 4 Digits (password)
+        last_4_digits = phone[-4:]  # Get last 4 digits of phone number
+        student.password_hash = generate_password_hash(last_4_digits)
         
         db.session.add(student)
         db.session.flush()  # Get the student ID
@@ -215,8 +225,8 @@ def create_student():
         # Add login credentials to response
         student_data['loginCredentials'] = {
             'username': phone,  # Parent phone number
-            'password': unique_password,  # Unique generated password
-            'note': 'Student logs in with Parent Phone Number + Unique Password'
+            'password': last_4_digits,  # Last 4 digits of parent phone
+            'note': 'Student logs in with Parent Phone Number + Last 4 Digits of Phone'
         }
         
         return success_response('Student created successfully', student_data, 201)
@@ -381,7 +391,7 @@ def delete_student(student_id):
 @login_required
 @require_role(UserRole.TEACHER, UserRole.SUPER_USER)
 def reset_student_password(student_id):
-    """Reset student password to unique generated password"""
+    """Reset student password to last 4 digits of parent phone"""
     try:
         student = User.query.filter(
             User.id == student_id,
@@ -391,9 +401,13 @@ def reset_student_password(student_id):
         if not student:
             return error_response('Student not found', 404)
         
-        # Generate new unique password based on student info
-        from utils.password_generator import generate_simple_unique_password
-        new_password = generate_simple_unique_password(student.first_name, student.guardian_phone)
+        # Get parent phone number
+        parent_phone = student.guardian_phone or student.phoneNumber
+        if not parent_phone or len(parent_phone) < 4:
+            return error_response('Cannot reset password: Invalid parent phone number', 400)
+        
+        # Password is last 4 digits of parent phone
+        new_password = parent_phone[-4:]
         student.password_hash = generate_password_hash(new_password)
         student.updated_at = datetime.utcnow()
         
