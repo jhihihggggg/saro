@@ -76,6 +76,9 @@
                     <button @click="viewStudents(batch)" class="bg-green-500 hover:bg-green-600 text-white p-2 rounded-lg transition-colors duration-200" title="View Students">
                         <i class="fas fa-users"></i>
                     </button>
+                    <button @click="archiveBatch(batch)" class="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-lg transition-colors duration-200" title="Archive Batch">
+                        <i class="fas fa-archive"></i>
+                    </button>
                     <button @click="deleteBatch(batch)" class="bg-red-500 hover:bg-red-600 text-white p-2 rounded-lg transition-colors duration-200" title="Delete Batch">
                         <i class="fas fa-trash"></i>
                     </button>
@@ -540,6 +543,57 @@ function batchManagement() {
                 class: '',
                 subject: ''
             };
+        },
+
+        async archiveBatch(batch) {
+            // Use custom confirmation
+            if (window.utils && window.utils.confirmAction) {
+                window.utils.confirmAction(
+                    `Archive batch "${batch.name}" and all ${batch.currentStudents || 0} students in it? They will be moved to the Archive section and hidden from active views.`,
+                    async () => {
+                        await this.confirmArchiveBatch(batch);
+                    },
+                    null,
+                    {
+                        title: 'Archive Batch',
+                        confirmText: 'Archive',
+                        cancelText: 'Cancel',
+                        type: 'warning'
+                    }
+                );
+            } else {
+                // Fallback to native confirm
+                if (confirm(`Archive batch "${batch.name}" and all ${batch.currentStudents || 0} students? They will be hidden from active views but can be restored later.`)) {
+                    await this.confirmArchiveBatch(batch);
+                }
+            }
+        },
+
+        async confirmArchiveBatch(batch) {
+            try {
+                const response = await fetch(`/api/batches/${batch.id}/archive`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        reason: 'Archived by teacher'
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.message || 'Failed to archive batch');
+                }
+
+                this.showToast(`📦 Batch "${batch.name}" and ${result.data.archived_students} students archived successfully`, 'success');
+                await this.loadBatches();
+
+            } catch (error) {
+                console.error('Failed to archive batch:', error);
+                this.showToast('Failed to archive batch: ' + error.message, 'error');
+            }
         }
     }
 }
