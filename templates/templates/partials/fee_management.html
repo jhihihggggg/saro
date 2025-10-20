@@ -193,7 +193,9 @@ function feeManager() {
         error: '',
         
         init() {
-            console.log('Fee Manager initialized');
+            console.log('🚀 Fee Manager initialized');
+            this.error = ''; // Clear any cached errors
+            this.message = ''; // Clear any cached messages
             this.checkAuthAndLoad();
         },
         
@@ -364,16 +366,18 @@ function feeManager() {
         
         async saveAll() {
             this.saving = true;
-            this.error = '';
+            this.error = ''; // Clear previous errors
+            this.message = ''; // Clear previous messages  
             let savedCount = 0;
             
             try {
                 const dirtyFees = Object.values(this.fees).filter(f => f.isDirty);
-                console.log('Saving dirty fees:', dirtyFees.length);
+                console.log('✅ Dirty fees to save:', dirtyFees.length);
                 
                 if (dirtyFees.length === 0) {
-                    console.log('No changes to save');
+                    console.log('⚠️  No changes to save');
                     this.message = 'No changes to save';
+                    this.saving = false;
                     return;
                 }
                 
