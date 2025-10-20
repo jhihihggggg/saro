@@ -972,6 +972,79 @@ def save_monthly_fee_noauth():
         db.session.rollback()
         return error_response(f'Failed to save monthly fee: {str(e)}', 500)
 
+@fees_bp.route('/monthly-load', methods=['GET'])
+def get_monthly_fees_noauth():
+    """No-auth GET endpoint to load monthly fees for a batch.
+    This duplicates get_monthly_fees logic but skips auth checks.
+    """
+    try:
+        batch_id = request.args.get('batch_id', type=int)
+        year = request.args.get('year', type=int, default=datetime.now().year)
+        
+        if not batch_id:
+            return error_response('batch_id parameter is required', 400)
+        
+        # Get all students in the batch
+        students = User.query.filter(
+            User.role == UserRole.STUDENT,
+            User.is_active == True
+        ).join(User.batches).filter(Batch.id == batch_id).all()
+        
+        if not students:
+            return error_response('No students found in this batch', 404)
+        
+        # Get fees for the year
+        fees_query = Fee.query.filter(
+            Fee.batch_id == batch_id,
+            extract('year', Fee.due_date) == year
+        ).all()
+        
+        # Create a lookup dictionary for fees
+        fees_lookup = {}
+        for fee in fees_query:
+            month = fee.due_date.month
+            key = f"{fee.user_id}_{month}"
+            fees_lookup[key] = {
+                'fee_id': fee.id,
+                'student_id': fee.user_id,
+                'month': month,
+                'year': year,
+                'amount': float(fee.amount),
+                'status': fee.status.value,
+                'due_date': fee.due_date.isoformat() if fee.due_date else None,
+                'paid_date': fee.paid_date.isoformat() if fee.paid_date else None
+            }
+        
+        # Format response in the expected format
+        result_fees = []
+        for student in students:
+            for month in range(1, 13):
+                key = f"{student.id}_{month}"
+                if key in fees_lookup:
+                    result_fees.append(fees_lookup[key])
+                else:
+                    # Return empty/zero entry for months without fees
+                    result_fees.append({
+                        'fee_id': None,
+                        'student_id': student.id,
+                        'month': month,
+                        'year': year,
+                        'amount': 0,
+                        'status': 'pending',
+                        'due_date': None,
+                        'paid_date': None
+                    })
+        
+        return success_response('Monthly fees retrieved successfully', {
+            'fees': result_fees,
+            'batch_id': batch_id,
+            'year': year,
+            'student_count': len(students)
+        })
+        
+    except Exception as e:
+        return error_response(f'Failed to retrieve monthly fees: {str(e)}', 500)
+
 @fees_bp.route('/monthly-test', methods=['GET', 'POST'])
 def test_monthly_endpoint():
     """Test endpoint to verify monthly routes are working"""
