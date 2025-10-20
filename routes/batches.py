@@ -15,13 +15,16 @@ batches_bp = Blueprint('batches', __name__)
 @batches_bp.route('', methods=['GET'])
 @login_required
 def get_batches():
-    """Get all batches with pagination"""
+    """Get all batches with pagination (excludes archived by default)"""
     try:
         page = request.args.get('page', 1, type=int)
         per_page = min(request.args.get('per_page', 20, type=int), 100)
         search = request.args.get('search', '').strip()
         
         query = Batch.query
+        
+        # Exclude archived batches by default
+        query = query.filter_by(is_archived=False)
         
         # Search filter
         if search:
@@ -456,9 +459,9 @@ def get_my_batches():
 @batches_bp.route('/active', methods=['GET'])
 @login_required
 def get_active_batches():
-    """Get all active batches (simplified list)"""
+    """Get all active batches (simplified list) - excludes archived"""
     try:
-        batches = Batch.query.filter_by(is_active=True).order_by(Batch.name).all()
+        batches = Batch.query.filter_by(is_active=True, is_archived=False).order_by(Batch.name).all()
         
         batches_data = []
         for batch in batches:
@@ -469,7 +472,7 @@ def get_active_batches():
                 'fee_amount': float(batch.fee_amount),
                 'start_date': batch.start_date.isoformat(),
                 'end_date': batch.end_date.isoformat() if batch.end_date else None,
-                'student_count': len([s for s in batch.students if s.is_active])
+                'student_count': len([s for s in batch.students if s.is_active and not s.is_archived])
             }
             batches_data.append(batch_data)
         
@@ -477,4 +480,140 @@ def get_active_batches():
         
     except Exception as e:
         return error_response(f'Failed to get active batches: {str(e)}', 500)
+
+# ============================================================================
+# ARCHIVE MANAGEMENT ROUTES
+# ============================================================================
+
+@batches_bp.route('/<int:batch_id>/archive', methods=['POST'])
+@login_required
+@require_role(UserRole.TEACHER, UserRole.SUPER_USER)
+def archive_batch(batch_id):
+    """Archive a batch and all its students"""
+    try:
+        current_user = get_current_user()
+        batch = Batch.query.get(batch_id)
+        
+        if not batch:
+            return error_response('Batch not found', 404)
+        
+        if batch.is_archived:
+            return error_response('Batch is already archived', 400)
+        
+        # Get reason from request
+        data = request.get_json() or {}
+        reason = data.get('reason', 'Archived by teacher')
+        
+        # Archive the batch
+        batch.is_archived = True
+        batch.archived_at = datetime.utcnow()
+        batch.archived_by = current_user.id
+        batch.archive_reason = reason
+        
+        # Archive all students in this batch
+        archived_students_count = 0
+        for student in batch.students:
+            if not student.is_archived and student.role == UserRole.STUDENT:
+                student.is_archived = True
+                student.archived_at = datetime.utcnow()
+                student.archived_by = current_user.id
+                student.archive_reason = f"Archived with batch: {batch.name}"
+                archived_students_count += 1
+        
+        db.session.commit()
+        
+        return success_response('Batch and students archived successfully', {
+            'batch_id': batch.id,
+            'batch_name': batch.name,
+            'archived_students': archived_students_count,
+            'archived_at': batch.archived_at.isoformat(),
+            'reason': reason
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return error_response(f'Failed to archive batch: {str(e)}', 500)
+
+@batches_bp.route('/<int:batch_id>/restore', methods=['POST'])
+@login_required
+@require_role(UserRole.TEACHER, UserRole.SUPER_USER)
+def restore_batch(batch_id):
+    """Restore an archived batch and optionally its students"""
+    try:
+        current_user = get_current_user()
+        batch = Batch.query.get(batch_id)
+        
+        if not batch:
+            return error_response('Batch not found', 404)
+        
+        if not batch.is_archived:
+            return error_response('Batch is not archived', 400)
+        
+        # Get restore options from request
+        data = request.get_json() or {}
+        restore_students = data.get('restore_students', True)
+        
+        # Restore the batch
+        batch.is_archived = False
+        batch.archived_at = None
+        batch.archived_by = None
+        batch.archive_reason = None
+        
+        # Restore students if requested
+        restored_students_count = 0
+        if restore_students:
+            for student in batch.students:
+                if student.is_archived and student.role == UserRole.STUDENT:
+                    # Only restore if archived with this batch
+                    if student.archive_reason and f"Archived with batch: {batch.name}" in student.archive_reason:
+                        student.is_archived = False
+                        student.archived_at = None
+                        student.archived_by = None
+                        student.archive_reason = None
+                        restored_students_count += 1
+        
+        db.session.commit()
+        
+        return success_response('Batch restored successfully', {
+            'batch_id': batch.id,
+            'batch_name': batch.name,
+            'restored_students': restored_students_count
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return error_response(f'Failed to restore batch: {str(e)}', 500)
+
+@batches_bp.route('/archived', methods=['GET'])
+@login_required
+@require_role(UserRole.TEACHER, UserRole.SUPER_USER)
+def get_archived_batches():
+    """Get all archived batches"""
+    try:
+        batches = Batch.query.filter_by(is_archived=True).order_by(Batch.archived_at.desc()).all()
+        
+        batches_data = []
+        for batch in batches:
+            batch_data = serialize_batch(batch)
+            batch_data['archived_at'] = batch.archived_at.isoformat() if batch.archived_at else None
+            batch_data['archive_reason'] = batch.archive_reason
+            
+            # Get archived by user info
+            if batch.archived_by:
+                archived_by_user = User.query.get(batch.archived_by)
+                batch_data['archived_by_name'] = archived_by_user.full_name if archived_by_user else 'Unknown'
+            else:
+                batch_data['archived_by_name'] = 'Unknown'
+            
+            # Count archived students in this batch
+            archived_student_count = len([s for s in batch.students if s.is_archived and s.role == UserRole.STUDENT])
+            batch_data['archived_students_count'] = archived_student_count
+            batch_data['total_students_count'] = len([s for s in batch.students if s.role == UserRole.STUDENT])
+            
+            batches_data.append(batch_data)
+        
+        return success_response('Archived batches retrieved', {'batches': batches_data})
+        
+    except Exception as e:
+        return error_response(f'Failed to get archived batches: {str(e)}', 500)
 

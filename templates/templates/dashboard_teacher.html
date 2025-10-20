@@ -178,6 +178,11 @@
             <div x-show="activeSection === 'online-exam'" x-transition>
                 {% include 'partials/online_exam_manager.html' %}
             </div>
+
+            <!-- Archive Management -->
+            <div x-show="activeSection === 'archive'" x-transition>
+                {% include 'partials/archive_management.html' %}
+            </div>
         </main>
     </div>
 </div>
@@ -232,7 +237,8 @@ function teacherDashboard() {
             { id: 'fees', title: 'Fees', icon: 'fas fa-money-bill' },
             { id: 'sms', title: 'SMS', icon: 'fas fa-sms' },
             { id: 'ai-question-builder', title: 'AI Questions', icon: 'fas fa-brain' },
-            { id: 'online-exam', title: 'Online Exams', icon: 'fas fa-laptop' }
+            { id: 'online-exam', title: 'Online Exams', icon: 'fas fa-laptop' },
+            { id: 'archive', title: 'Archive', icon: 'fas fa-archive' }
         ],
 
         init() {

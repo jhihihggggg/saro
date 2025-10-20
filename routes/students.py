@@ -38,12 +38,12 @@ def validate_phone(phone):
 @login_required
 @require_role(UserRole.TEACHER, UserRole.SUPER_USER)
 def get_students():
-    """Get all students with their batch information"""
+    """Get all students with their batch information (excludes archived)"""
     try:
         batch_id = request.args.get('batch_id', type=int)
         search = request.args.get('search', '').strip()
         
-        query = User.query.filter(User.role == UserRole.STUDENT, User.is_active == True)
+        query = User.query.filter(User.role == UserRole.STUDENT, User.is_active == True, User.is_archived == False)
         
         # Filter by batch
         if batch_id:
@@ -502,3 +502,129 @@ def bulk_import_students():
     except Exception as e:
         db.session.rollback()
         return error_response(f'Failed to import students: {str(e)}', 500)
+
+# ============================================================================
+# ARCHIVE MANAGEMENT ROUTES
+# ============================================================================
+
+@students_bp.route('/<int:student_id>/archive', methods=['POST'])
+@login_required
+@require_role(UserRole.TEACHER, UserRole.SUPER_USER)
+def archive_student(student_id):
+    """Archive a student"""
+    try:
+        current_user = get_current_user()
+        student = User.query.get(student_id)
+        
+        if not student or student.role != UserRole.STUDENT:
+            return error_response('Student not found', 404)
+        
+        if student.is_archived:
+            return error_response('Student is already archived', 400)
+        
+        # Get reason from request
+        data = request.get_json() or {}
+        reason = data.get('reason', 'Archived by teacher')
+        
+        # Archive the student
+        student.is_archived = True
+        student.archived_at = datetime.utcnow()
+        student.archived_by = current_user.id
+        student.archive_reason = reason
+        
+        db.session.commit()
+        
+        return success_response('Student archived successfully', {
+            'student_id': student.id,
+            'student_name': student.full_name,
+            'archived_at': student.archived_at.isoformat(),
+            'reason': reason
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return error_response(f'Failed to archive student: {str(e)}', 500)
+
+@students_bp.route('/<int:student_id>/restore', methods=['POST'])
+@login_required
+@require_role(UserRole.TEACHER, UserRole.SUPER_USER)
+def restore_student(student_id):
+    """Restore an archived student"""
+    try:
+        student = User.query.get(student_id)
+        
+        if not student or student.role != UserRole.STUDENT:
+            return error_response('Student not found', 404)
+        
+        if not student.is_archived:
+            return error_response('Student is not archived', 400)
+        
+        # Restore the student
+        student.is_archived = False
+        student.archived_at = None
+        student.archived_by = None
+        student.archive_reason = None
+        
+        db.session.commit()
+        
+        return success_response('Student restored successfully', {
+            'student_id': student.id,
+            'student_name': student.full_name
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return error_response(f'Failed to restore student: {str(e)}', 500)
+
+@students_bp.route('/archived', methods=['GET'])
+@login_required
+@require_role(UserRole.TEACHER, UserRole.SUPER_USER)
+def get_archived_students():
+    """Get all archived students"""
+    try:
+        batch_id = request.args.get('batch_id', type=int)
+        
+        query = User.query.filter(User.role == UserRole.STUDENT, User.is_archived == True)
+        
+        # Filter by batch if specified
+        if batch_id:
+            query = query.join(user_batches).filter(user_batches.c.batch_id == batch_id)
+        
+        students = query.order_by(User.archived_at.desc()).all()
+        
+        students_data = []
+        for student in students:
+            student_data = serialize_user(student)
+            student_data['archived_at'] = student.archived_at.isoformat() if student.archived_at else None
+            student_data['archive_reason'] = student.archive_reason
+            
+            # Get archived by user info
+            if student.archived_by:
+                archived_by_user = User.query.get(student.archived_by)
+                student_data['archived_by_name'] = archived_by_user.full_name if archived_by_user else 'Unknown'
+            else:
+                student_data['archived_by_name'] = 'Unknown'
+            
+            # Add batch information
+            if student.batches:
+                student_data['batch'] = {
+                    'id': student.batches[0].id,
+                    'name': student.batches[0].name,
+                    'description': student.batches[0].description
+                }
+            else:
+                student_data['batch'] = None
+            
+            # Format for frontend
+            student_data['firstName'] = student_data.get('first_name', '')
+            student_data['lastName'] = student_data.get('last_name', '')
+            student_data['phoneNumber'] = student_data.get('phoneNumber', '')
+            student_data['guardianPhone'] = student_data.get('guardian_phone', '')
+            student_data['guardianName'] = student_data.get('guardian_name', '')
+            
+            students_data.append(student_data)
+        
+        return success_response('Archived students retrieved', {'students': students_data})
+        
+    except Exception as e:
+        return error_response(f'Failed to get archived students: {str(e)}', 500)
