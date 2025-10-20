@@ -184,10 +184,10 @@ def create_student():
             is_active=data.get('isActive', True)
         )
         
-        # Generate password from last 4 digits of parent phone number
-        # Student login: Parent Phone Number (username) + Last 4 Digits (password)
-        last_4_digits = phone[-4:]  # Get last 4 digits of phone number
-        student.password_hash = generate_password_hash(last_4_digits)
+        # Generate password as last 4 digits of parent phone
+        # Students login with parent phone number + last 4 digits as password
+        unique_password = phone[-4:]  # Last 4 digits of parent phone
+        student.password_hash = generate_password_hash(unique_password)
         
         db.session.add(student)
         db.session.flush()  # Get the student ID
@@ -225,8 +225,8 @@ def create_student():
         # Add login credentials to response
         student_data['loginCredentials'] = {
             'username': phone,  # Parent phone number
-            'password': last_4_digits,  # Last 4 digits of parent phone
-            'note': 'Student logs in with Parent Phone Number + Last 4 Digits of Phone'
+            'password': unique_password,  # Last 4 digits of parent phone
+            'note': 'Student logs in with Parent Phone Number (username) + Last 4 Digits of Parent Phone (password)'
         }
         
         return success_response('Student created successfully', student_data, 201)
@@ -403,17 +403,21 @@ def reset_student_password(student_id):
         
         # Get parent phone number
         parent_phone = student.guardian_phone or student.phoneNumber
-        if not parent_phone or len(parent_phone) < 4:
-            return error_response('Cannot reset password: Invalid parent phone number', 400)
         
-        # Password is last 4 digits of parent phone
+        if not parent_phone or len(parent_phone) < 4:
+            return error_response('Parent phone number not found or invalid', 400)
+        
+        # Generate password as last 4 digits of parent phone
         new_password = parent_phone[-4:]
         student.password_hash = generate_password_hash(new_password)
         student.updated_at = datetime.utcnow()
         
         db.session.commit()
         
-        return success_response('Password reset successfully', {'newPassword': new_password})
+        return success_response('Password reset successfully', {
+            'newPassword': new_password,
+            'note': 'Password is the last 4 digits of parent phone number'
+        })
         
     except Exception as e:
         db.session.rollback()

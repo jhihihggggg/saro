@@ -297,7 +297,7 @@
                         <div class="flex items-center">
                             <i class="fas fa-info-circle text-blue-600 mr-2"></i>
                             <p class="text-blue-800 text-sm">
-                                <strong>What happens:</strong> A new unique password will be generated and the old password will no longer work.
+                                <strong>What happens:</strong> Password will be reset to the <strong>last 4 digits</strong> of the parent phone number.
                             </p>
                         </div>
                     </div>
@@ -377,9 +377,9 @@
                             </div>
                             
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 uppercase tracking-wide">Password (Last 4 Digits)</label>
+                                <label class="block text-xs font-medium text-gray-600 uppercase tracking-wide">Password</label>
                                 <div class="flex items-center justify-between bg-white p-3 rounded-lg border">
-                                    <span class="font-mono text-2xl text-gray-900 font-bold" x-text="newStudentCredentials.password"></span>
+                                    <span class="font-mono text-lg text-gray-900" x-text="newStudentCredentials.password"></span>
                                     <button @click="copyToClipboard(newStudentCredentials.password)" class="text-blue-600 hover:text-blue-800">
                                         <i class="fas fa-copy"></i>
                                     </button>
@@ -387,10 +387,10 @@
                             </div>
                         </div>
                         
-                        <div class="mt-4 p-3 bg-green-50 border-l-4 border-green-400 rounded">
-                            <p class="text-sm text-green-800">
+                        <div class="mt-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded">
+                            <p class="text-sm text-yellow-800">
                                 <i class="fas fa-info-circle mr-1"></i>
-                                <strong>How to Login:</strong> Use Parent Phone as username and Last 4 Digits of Phone as password
+                                <strong>Important:</strong> <span x-text="newStudentCredentials.note"></span>
                             </p>
                         </div>
                     </div>
@@ -552,15 +552,18 @@ function studentManagement() {
             }
         },
 
-        // Generate display password for viewing (same algorithm as backend)
+        // Generate display password for viewing (last 4 digits of parent phone)
         generateDisplayPassword(student) {
-            if (!student.guardianPhone && !student.phoneNumber) {
+            if (!student.guardianPhone) {
                 return 'Not Available';
             }
             
             // Password is last 4 digits of parent phone number
-            const phone = student.guardianPhone || student.phoneNumber;
-            return phone.slice(-4);  // Last 4 digits
+            const phoneDigits = student.guardianPhone.replace(/\D/g, '');
+            if (phoneDigits.length < 4) {
+                return 'Not Available';
+            }
+            return phoneDigits.slice(-4);
         },
 
         async loadBatches() {
@@ -759,7 +762,7 @@ function studentManagement() {
                 this.newStudentCredentials = {
                     username: this.studentToReset.guardianPhone || this.studentToReset.phoneNumber,
                     password: result.data.newPassword,
-                    note: 'Password is last 4 digits of parent phone number'
+                    note: 'Student logs in with Parent Phone + this new password'
                 };
                 
                 // Close reset modal and show password modal
