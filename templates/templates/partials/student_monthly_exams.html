@@ -1,0 +1,239 @@
+<!-- Student Monthly Exams - Read-Only View -->
+<div class="p-4 lg:p-6">
+    <div class="mb-6">
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">📊 My Monthly Exams & Results</h2>
+        <p class="text-gray-600">View your monthly exam results and rankings</p>
+    </div>
+
+    <!-- Loading State -->
+    <div id="examsLoading" class="text-center py-12">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <p class="text-gray-600">Loading exams...</p>
+    </div>
+
+    <!-- No Batch Message -->
+    <div id="noBatchMessage" class="hidden text-center py-12">
+        <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+        </svg>
+        <p class="text-gray-600 font-medium">You are not enrolled in any batch</p>
+        <p class="text-gray-500 text-sm mt-2">Please contact your teacher to be added to a batch</p>
+    </div>
+
+    <!-- Exams List -->
+    <div id="examsContainer" class="hidden space-y-6">
+        <!-- Exams will be loaded here -->
+    </div>
+</div>
+
+<script>
+(function() {
+    var studentMonthlyExams = {
+        currentUser: null,
+        userBatchId: null,
+        
+        init: function() {
+            this.currentUser = {{ user|tojson if user else 'null' }};
+            this.loadUserBatches();
+        },
+        
+        loadUserBatches: function() {
+            var self = this;
+            
+            fetch('/api/students/me/batches')
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.success && data.data && data.data.batches && data.data.batches.length > 0) {
+                        self.userBatchId = data.data.batches[0].id;
+                        self.loadMonthlyExams();
+                    } else {
+                        document.getElementById('examsLoading').classList.add('hidden');
+                        document.getElementById('noBatchMessage').classList.remove('hidden');
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Error loading batches:', error);
+                    document.getElementById('examsLoading').classList.add('hidden');
+                    document.getElementById('noBatchMessage').classList.remove('hidden');
+                });
+        },
+        
+        loadMonthlyExams: function() {
+            var self = this;
+            
+            fetch('/api/monthly-exams/')
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    document.getElementById('examsLoading').classList.add('hidden');
+                    
+                    if (data.success && data.data && data.data.exams) {
+                        var myExams = data.data.exams.filter(function(exam) {
+                            return exam.batch_id === self.userBatchId;
+                        });
+                        
+                        if (myExams.length > 0) {
+                            self.renderExams(myExams);
+                            document.getElementById('examsContainer').classList.remove('hidden');
+                        } else {
+                            document.getElementById('noBatchMessage').classList.remove('hidden');
+                        }
+                    } else {
+                        document.getElementById('noBatchMessage').classList.remove('hidden');
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Error loading exams:', error);
+                    document.getElementById('examsLoading').classList.add('hidden');
+                    document.getElementById('noBatchMessage').classList.remove('hidden');
+                });
+        },
+        
+        renderExams: function(exams) {
+            var container = document.getElementById('examsContainer');
+            var html = '';
+            
+            for (var i = 0; i < exams.length; i++) {
+                var exam = exams[i];
+                var examDate = new Date(exam.exam_date).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+                
+                html += '<div class="bg-white rounded-lg shadow-md overflow-hidden">';
+                html += '  <div class="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-4">';
+                html += '    <div class="flex items-center justify-between">';
+                html += '      <div>';
+                html += '        <h3 class="text-xl font-bold text-white">' + exam.title + '</h3>';
+                html += '        <p class="text-blue-100 text-sm mt-1">📅 ' + examDate + ' • Class: ' + exam.batch_name + '</p>';
+                html += '      </div>';
+                html += '    </div>';
+                html += '  </div>';
+                html += '  <div class="p-6">';
+                html += '    <button onclick="studentMonthlyExams.viewMyResults(' + exam.id + ')" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition">';
+                html += '      View My Results';
+                html += '    </button>';
+                html += '    <div id="results-' + exam.id + '" class="mt-4 hidden"></div>';
+                html += '  </div>';
+                html += '</div>';
+            }
+            
+            container.innerHTML = html;
+        },
+        
+        viewMyResults: function(examId) {
+            var self = this;
+            var resultsDiv = document.getElementById('results-' + examId);
+            
+            if (!resultsDiv.classList.contains('hidden')) {
+                resultsDiv.classList.add('hidden');
+                return;
+            }
+            
+            resultsDiv.innerHTML = '<div class="text-center py-4"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div></div>';
+            resultsDiv.classList.remove('hidden');
+            
+            fetch('/api/monthly-exams/' + examId + '/marks')
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.success && data.data && data.data.marks) {
+                        var myMarks = data.data.marks.filter(function(mark) {
+                            return mark.student_phone === self.currentUser.phoneNumber;
+                        });
+                        
+                        if (myMarks.length > 0) {
+                            self.renderMyResults(resultsDiv, myMarks, data.data.marks);
+                        } else {
+                            resultsDiv.innerHTML = '<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center"><p class="text-yellow-800">No results available yet</p></div>';
+                        }
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Error loading results:', error);
+                    resultsDiv.innerHTML = '<div class="bg-red-50 border border-red-200 rounded-lg p-4 text-center"><p class="text-red-800">Error loading results</p></div>';
+                });
+        },
+        
+        renderMyResults: function(container, myMarks, allMarks) {
+            var totalMarks = 0;
+            var totalObtained = 0;
+            
+            var html = '<div class="space-y-4">';
+            
+            // My Marks Table
+            html += '<div class="bg-blue-50 border border-blue-200 rounded-lg overflow-hidden">';
+            html += '  <table class="min-w-full divide-y divide-blue-200">';
+            html += '    <thead class="bg-blue-100">';
+            html += '      <tr>';
+            html += '        <th class="px-4 py-3 text-left text-sm font-semibold text-blue-900">Subject</th>';
+            html += '        <th class="px-4 py-3 text-center text-sm font-semibold text-blue-900">Marks</th>';
+            html += '        <th class="px-4 py-3 text-center text-sm font-semibold text-blue-900">Total</th>';
+            html += '        <th class="px-4 py-3 text-center text-sm font-semibold text-blue-900">%</th>';
+            html += '      </tr>';
+            html += '    </thead>';
+            html += '    <tbody class="bg-white divide-y divide-blue-100">';
+            
+            for (var i = 0; i < myMarks.length; i++) {
+                var mark = myMarks[i];
+                var percentage = ((mark.marks_obtained / mark.total_marks) * 100).toFixed(1);
+                var bgClass = percentage >= 80 ? 'bg-green-50' : percentage >= 60 ? 'bg-yellow-50' : 'bg-red-50';
+                
+                totalMarks += mark.total_marks;
+                totalObtained += mark.marks_obtained;
+                
+                html += '<tr class="' + bgClass + '">';
+                html += '  <td class="px-4 py-3 text-sm font-medium text-gray-900">' + mark.subject + '</td>';
+                html += '  <td class="px-4 py-3 text-center text-lg font-bold text-blue-600">' + mark.marks_obtained + '</td>';
+                html += '  <td class="px-4 py-3 text-center text-sm text-gray-600">' + mark.total_marks + '</td>';
+                html += '  <td class="px-4 py-3 text-center text-sm font-semibold text-gray-900">' + percentage + '%</td>';
+                html += '</tr>';
+            }
+            
+            var overallPercentage = ((totalObtained / totalMarks) * 100).toFixed(2);
+            
+            html += '    </tbody>';
+            html += '    <tfoot class="bg-blue-100">';
+            html += '      <tr>';
+            html += '        <td class="px-4 py-3 text-sm font-bold text-blue-900">Total</td>';
+            html += '        <td class="px-4 py-3 text-center text-xl font-bold text-blue-600">' + totalObtained + '</td>';
+            html += '        <td class="px-4 py-3 text-center text-sm font-semibold text-blue-900">' + totalMarks + '</td>';
+            html += '        <td class="px-4 py-3 text-center text-lg font-bold text-blue-900">' + overallPercentage + '%</td>';
+            html += '      </tr>';
+            html += '    </tfoot>';
+            html += '  </table>';
+            html += '</div>';
+            
+            // Show ranking if available
+            if (myMarks[0].rank) {
+                html += '<div class="bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-lg p-4 text-center">';
+                html += '  <p class="text-yellow-900 text-sm font-medium">Your Rank</p>';
+                html += '  <p class="text-4xl font-bold text-yellow-900 mt-2">🏆 #' + myMarks[0].rank + '</p>';
+                html += '</div>';
+            }
+            
+            html += '</div>';
+            
+            container.innerHTML = html;
+        }
+    };
+    
+    // Initialize when section becomes visible
+    var observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.target.id === 'monthly-examsSection' && !mutation.target.classList.contains('hidden')) {
+                if (!studentMonthlyExams.currentUser) {
+                    studentMonthlyExams.init();
+                }
+            }
+        });
+    });
+    
+    var section = document.getElementById('monthly-examsSection');
+    if (section) {
+        observer.observe(section, { attributes: true, attributeFilter: ['class'] });
+    }
+    
+    // Expose to global scope
+    window.studentMonthlyExams = studentMonthlyExams;
+})();
+</script>

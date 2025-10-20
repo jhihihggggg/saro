@@ -23,17 +23,17 @@
                 <i class="fas fa-home mr-3 h-6 w-6"></i>
                 Dashboard
             </a>
-            <a href="#documents" data-section="documents" class="nav-item group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900 mb-1">
-                <i class="fas fa-file-pdf mr-3 h-6 w-6"></i>
-                Study Materials
-            </a>
-            <a href="#exams" data-section="exams" class="nav-item group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900 mb-1">
+            <a href="#monthly-exams" data-section="monthly-exams" class="nav-item group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900 mb-1">
                 <i class="fas fa-clipboard-list mr-3 h-6 w-6"></i>
-                Online Exams
+                Monthly Exams
             </a>
-            <a href="#results" data-section="results" class="nav-item group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900 mb-1">
-                <i class="fas fa-chart-bar mr-3 h-6 w-6"></i>
-                My Results
+            <a href="#online-resources" data-section="online-resources" class="nav-item group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900 mb-1">
+                <i class="fas fa-book mr-3 h-6 w-6"></i>
+                Online Resources
+            </a>
+            <a href="#ai-solver" data-section="ai-solver" class="nav-item group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900 mb-1">
+                <i class="fas fa-robot mr-3 h-6 w-6"></i>
+                AI Solver
             </a>
             <a href="#attendance" data-section="attendance" class="nav-item group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900 mb-1">
                 <i class="fas fa-calendar-check mr-3 h-6 w-6"></i>
@@ -162,33 +162,19 @@
                         </div>
                     </div>
 
-                    <!-- Documents Section -->
-                    <div id="documentsSection" class="content-section hidden">
+                    <!-- Monthly Exams Section (Read-Only) -->
+                    <div id="monthly-examsSection" class="content-section hidden">
+                        {% include 'partials/student_monthly_exams.html' %}
+                    </div>
+
+                    <!-- Online Resources Section (Read-Only, No Upload) -->
+                    <div id="online-resourcesSection" class="content-section hidden">
                         {% include 'partials/student_documents.html' %}
                     </div>
 
-                    <!-- Exams Section -->
-                    <div id="examsSection" class="content-section hidden">
-                        <div class="bg-white shadow rounded-lg">
-                            <div class="px-4 py-5 sm:p-6">
-                                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Available Online Exams</h3>
-                                <div id="examsList">
-                                    <!-- Exams list will be loaded here -->
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Results Section -->
-                    <div id="resultsSection" class="content-section hidden">
-                        <div class="bg-white shadow rounded-lg">
-                            <div class="px-4 py-5 sm:p-6">
-                                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">My Exam Results</h3>
-                                <div id="resultsList">
-                                    <!-- Results will be loaded here -->
-                                </div>
-                            </div>
-                        </div>
+                    <!-- AI Solver Section -->
+                    <div id="ai-solverSection" class="content-section hidden">
+                        {% include 'partials/student_ai_solver.html' %}
                     </div>
 
                     <!-- Attendance Section -->

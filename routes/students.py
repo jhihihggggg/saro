@@ -659,3 +659,31 @@ def get_archived_students():
         
     except Exception as e:
         return error_response(f'Failed to get archived students: {str(e)}', 500)
+@students_bp.route('/me/batches', methods=['GET'])
+def get_my_batches():
+    """Get current student's batches"""
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return error_response('Not authenticated', 401)
+        
+        student = User.query.get(user_id)
+        if not student or student.role != UserRole.STUDENT:
+            return error_response('Student not found', 404)
+        
+        batches_data = []
+        if student.batches:
+            for batch in student.batches:
+                if batch.is_active:
+                    batches_data.append({
+                        'id': batch.id,
+                        'name': batch.name,
+                        'description': batch.description,
+                        'fee_amount': float(batch.fee_amount),
+                        'is_active': batch.is_active
+                    })
+        
+        return success_response('Batches retrieved', {'batches': batches_data})
+        
+    except Exception as e:
+        return error_response(f'Failed to get batches: {str(e)}', 500)
