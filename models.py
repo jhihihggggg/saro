@@ -592,3 +592,52 @@ class MonthlyRanking(db.Model):
     
     def __repr__(self):
         return f'<MonthlyRanking {self.position} - User {self.user_id}>'
+
+
+class Document(db.Model):
+    """PDF/Document storage for online exams and study materials"""
+    __tablename__ = 'documents'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    class_name = db.Column(db.String(200), nullable=False)  # e.g., "HSC", "Class 10"
+    book_name = db.Column(db.String(200), nullable=False)   # e.g., "Biology", "Chemistry"
+    chapter_name = db.Column(db.String(200), nullable=False) # e.g., "Chapter 1: Cell Biology"
+    file_name = db.Column(db.String(255), nullable=False)    # Original file name
+    file_path = db.Column(db.String(500), nullable=False)    # Storage path
+    file_size = db.Column(db.Integer, nullable=False)        # File size in bytes
+    file_type = db.Column(db.String(50), nullable=False, default='application/pdf')  # MIME type
+    description = db.Column(db.Text, nullable=True)          # Optional description
+    uploaded_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    download_count = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    uploader = db.relationship('User', foreign_keys=[uploaded_by])
+    
+    def __repr__(self):
+        return f'<Document {self.class_name} - {self.book_name} - {self.chapter_name}>'
+    
+    @property
+    def file_size_mb(self):
+        """Return file size in MB"""
+        return round(self.file_size / (1024 * 1024), 2)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'class_name': self.class_name,
+            'book_name': self.book_name,
+            'chapter_name': self.chapter_name,
+            'file_name': self.file_name,
+            'file_size': self.file_size,
+            'file_size_mb': self.file_size_mb,
+            'file_type': self.file_type,
+            'description': self.description,
+            'uploaded_by': self.uploaded_by,
+            'uploader_name': self.uploader.full_name if self.uploader else 'Unknown',
+            'download_count': self.download_count,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }

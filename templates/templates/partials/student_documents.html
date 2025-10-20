@@ -1,0 +1,315 @@
+<!-- Student Document Browser -->
+<div class="bg-white rounded-lg shadow-md p-6">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold text-gray-800">Study Materials</h2>
+        <button onclick="toggleView()" id="viewToggle" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+            Switch to Tree View
+        </button>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="mb-6">
+        <div class="relative">
+            <input type="text" id="searchInput" onkeyup="searchDocuments()" 
+                   class="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                   placeholder="Search by class, book, chapter, or file name...">
+            <svg class="w-6 h-6 absolute left-3 top-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+        </div>
+    </div>
+
+    <!-- Tab View (List) -->
+    <div id="listView" class="space-y-4">
+        <div id="documentsListContainer" class="space-y-2">
+            <div class="text-center py-8 text-gray-500">
+                <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                <p>Loading documents...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tree View -->
+    <div id="treeView" class="hidden">
+        <div id="documentTreeContainer">
+            <div class="text-center py-8 text-gray-500">
+                <p>Loading document structure...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentView = 'list';
+let allDocuments = [];
+
+// Toggle between list and tree view
+function toggleView() {
+    currentView = currentView === 'list' ? 'tree' : 'list';
+    const listView = document.getElementById('listView');
+    const treeView = document.getElementById('treeView');
+    const toggleBtn = document.getElementById('viewToggle');
+    
+    if (currentView === 'tree') {
+        listView.classList.add('hidden');
+        treeView.classList.remove('hidden');
+        toggleBtn.innerHTML = `
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+            Switch to List View
+        `;
+        loadTreeView();
+    } else {
+        treeView.classList.add('hidden');
+        listView.classList.remove('hidden');
+        toggleBtn.innerHTML = `
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+            Switch to Tree View
+        `;
+    }
+}
+
+// Load documents in list view
+async function loadDocuments() {
+    const container = document.getElementById('documentsListContainer');
+    
+    try {
+        const response = await fetch('/api/documents/');
+        const data = await response.json();
+        
+        if (data.success && data.documents) {
+            allDocuments = data.documents;
+            
+            if (data.documents.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                        <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        <p>No documents available yet</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            renderDocumentsList(data.documents);
+        }
+    } catch (error) {
+        console.error('Error loading documents:', error);
+        container.innerHTML = '<div class="text-center py-8 text-red-500">Error loading documents</div>';
+    }
+}
+
+// Render documents list
+function renderDocumentsList(documents) {
+    const container = document.getElementById('documentsListContainer');
+    let html = '';
+    
+    documents.forEach(doc => {
+        const uploadDate = new Date(doc.created_at).toLocaleDateString();
+        const fileIcon = getFileIcon(doc.file_type);
+        
+        html += `
+            <div class="document-item border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                 data-search="${doc.class_name.toLowerCase()} ${doc.book_name.toLowerCase()} ${doc.chapter_name.toLowerCase()} ${doc.file_name.toLowerCase()}">
+                <div class="flex items-start justify-between">
+                    <div class="flex items-start space-x-3 flex-1">
+                        <div class="text-gray-400 mt-1">
+                            ${fileIcon}
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="font-semibold text-gray-800 mb-1">${doc.file_name}</h3>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <p><span class="font-medium">Class:</span> ${doc.class_name}</p>
+                                <p><span class="font-medium">Book:</span> ${doc.book_name}</p>
+                                <p><span class="font-medium">Chapter:</span> ${doc.chapter_name}</p>
+                                ${doc.description ? `<p class="text-gray-500 italic">${doc.description}</p>` : ''}
+                            </div>
+                            <div class="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                                <span>📦 ${doc.file_size_mb} MB</span>
+                                <span>📥 ${doc.download_count} downloads</span>
+                                <span>📅 ${uploadDate}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <a href="/api/documents/${doc.id}/download" 
+                           class="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                            </svg>
+                            Download
+                        </a>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+// Get file icon based on file type
+function getFileIcon(fileType) {
+    if (fileType.includes('pdf')) {
+        return `<svg class="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"/>
+                </svg>`;
+    } else if (fileType.includes('word') || fileType.includes('doc')) {
+        return `<svg class="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"/>
+                </svg>`;
+    } else if (fileType.includes('powerpoint') || fileType.includes('presentation')) {
+        return `<svg class="w-8 h-8 text-orange-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"/>
+                </svg>`;
+    } else {
+        return `<svg class="w-8 h-8 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"/>
+                </svg>`;
+    }
+}
+
+// Search documents
+function searchDocuments() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const items = document.querySelectorAll('.document-item');
+    
+    items.forEach(item => {
+        const searchData = item.getAttribute('data-search');
+        if (searchData.includes(searchTerm)) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+// Load tree view
+async function loadTreeView() {
+    const container = document.getElementById('documentTreeContainer');
+    
+    try {
+        const response = await fetch('/api/documents/structure');
+        const data = await response.json();
+        
+        if (data.success && data.structure) {
+            renderTreeStructure(data.structure, container);
+        }
+    } catch (error) {
+        console.error('Error loading tree structure:', error);
+        container.innerHTML = '<div class="text-center py-8 text-red-500">Error loading structure</div>';
+    }
+}
+
+// Render tree structure
+function renderTreeStructure(structure, container) {
+    let html = '<div class="space-y-4">';
+    
+    for (const className in structure) {
+        html += `
+            <div class="border border-gray-200 rounded-lg">
+                <button onclick="toggleClass('${className}')" class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 hover:bg-gray-100 rounded-t-lg">
+                    <span class="font-semibold text-gray-800">📚 ${className}</span>
+                    <svg class="w-5 h-5 transform transition-transform" id="icon-${className}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div id="class-${className}" class="hidden px-4 py-2">
+        `;
+        
+        for (const bookName in structure[className]) {
+            html += `
+                <div class="ml-4 my-2 border-l-2 border-blue-200 pl-4">
+                    <button onclick="toggleBook('${className}', '${bookName}')" class="w-full text-left py-2 flex items-center justify-between hover:text-blue-600">
+                        <span class="font-medium text-gray-700">📖 ${bookName}</span>
+                        <svg class="w-4 h-4 transform transition-transform" id="icon-${className}-${bookName}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <div id="book-${className}-${bookName}" class="hidden ml-4">
+            `;
+            
+            for (const chapterName in structure[className][bookName]) {
+                const documents = structure[className][bookName][chapterName];
+                html += `
+                    <div class="my-2 border-l-2 border-green-200 pl-4">
+                        <p class="font-medium text-gray-600 mb-2">📄 ${chapterName}</p>
+                        <div class="space-y-1">
+                `;
+                
+                documents.forEach(doc => {
+                    html += `
+                        <div class="flex items-center justify-between py-1 text-sm">
+                            <span class="text-gray-600">${doc.file_name} (${doc.file_size_mb} MB)</span>
+                            <a href="/api/documents/${doc.id}/download" class="text-blue-500 hover:text-blue-700 text-xs">Download</a>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+            
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+        
+        html += `
+                </div>
+            </div>
+        `;
+    }
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// Toggle class in tree view
+function toggleClass(className) {
+    const content = document.getElementById(`class-${className}`);
+    const icon = document.getElementById(`icon-${className}`);
+    
+    if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        icon.style.transform = 'rotate(180deg)';
+    } else {
+        content.classList.add('hidden');
+        icon.style.transform = 'rotate(0deg)';
+    }
+}
+
+// Toggle book in tree view
+function toggleBook(className, bookName) {
+    const content = document.getElementById(`book-${className}-${bookName}`);
+    const icon = document.getElementById(`icon-${className}-${bookName}`);
+    
+    if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        icon.style.transform = 'rotate(180deg)';
+    } else {
+        content.classList.add('hidden');
+        icon.style.transform = 'rotate(0deg)';
+    }
+}
+
+// Load documents immediately and when section becomes visible
+loadDocuments();
+
+// Also reload when the documents section is clicked
+if (typeof loadDocuments === 'function') {
+    setTimeout(() => loadDocuments(), 500);
+}
+</script>

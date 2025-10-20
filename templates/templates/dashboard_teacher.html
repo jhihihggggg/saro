@@ -169,14 +169,14 @@
                 {% include 'partials/sms_management.html' %}
             </div>
 
+            <!-- Online Resources -->
+            <div x-show="activeSection === 'online-resources'" x-transition>
+                {% include 'partials/document_management.html' %}
+            </div>
+
             <!-- AI Question Builder -->
             <div x-show="activeSection === 'ai-question-builder'" x-transition>
                 {% include 'partials/ai_questions.html' %}
-            </div>
-
-            <!-- Online Exam Manager -->
-            <div x-show="activeSection === 'online-exam'" x-transition>
-                {% include 'partials/online_exam_manager.html' %}
             </div>
 
             <!-- Archive Management -->
@@ -236,8 +236,8 @@ function teacherDashboard() {
             { id: 'attendance', title: 'Attendance', icon: 'fas fa-calendar-check' },
             { id: 'fees', title: 'Fees', icon: 'fas fa-money-bill' },
             { id: 'sms', title: 'SMS', icon: 'fas fa-sms' },
+            { id: 'online-resources', title: 'Online Resources', icon: 'fas fa-book' },
             { id: 'ai-question-builder', title: 'AI Questions', icon: 'fas fa-brain' },
-            { id: 'online-exam', title: 'Online Exams', icon: 'fas fa-laptop' },
             { id: 'archive', title: 'Archive', icon: 'fas fa-archive' }
         ],
 

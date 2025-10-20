@@ -49,6 +49,7 @@ def create_app(config_name=None):
     from routes.students import students_bp
     from routes.monthly_exams import monthly_exams_bp
     from routes.debug import debug_bp
+    from routes.documents import documents_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(users_bp, url_prefix='/api/users')
@@ -66,6 +67,7 @@ def create_app(config_name=None):
     app.register_blueprint(settings_bp, url_prefix='/api/settings')
     app.register_blueprint(monthly_exams_bp, url_prefix='/api/monthly-exams')
     app.register_blueprint(debug_bp, url_prefix='/api/debug')
+    app.register_blueprint(documents_bp, url_prefix='/api/documents')
     
     # Register template routes
     from routes.templates import templates_bp

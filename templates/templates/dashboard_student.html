@@ -23,6 +23,10 @@
                 <i class="fas fa-home mr-3 h-6 w-6"></i>
                 Dashboard
             </a>
+            <a href="#documents" data-section="documents" class="nav-item group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900 mb-1">
+                <i class="fas fa-file-pdf mr-3 h-6 w-6"></i>
+                Study Materials
+            </a>
             <a href="#exams" data-section="exams" class="nav-item group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900 mb-1">
                 <i class="fas fa-clipboard-list mr-3 h-6 w-6"></i>
                 Online Exams
@@ -156,6 +160,11 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Documents Section -->
+                    <div id="documentsSection" class="content-section hidden">
+                        {% include 'partials/student_documents.html' %}
                     </div>
 
                     <!-- Exams Section -->
