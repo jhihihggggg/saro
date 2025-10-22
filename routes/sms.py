@@ -760,36 +760,48 @@ def add_sms_credits():
         credits = data.get('credits')
         memo = data.get('memo', 'Credits added by Super Admin')
         
-        if not teacher_id or not credits:
+        if not teacher_id or credits is None:
             return error_response('Teacher ID and credits are required', 400)
         
-        if not isinstance(credits, int) or credits <= 0:
-            return error_response('Credits must be a positive integer', 400)
+        if not isinstance(credits, int) or credits == 0:
+            return error_response('Credits must be a non-zero integer', 400)
             
         if credits > 10000:
             return error_response('Cannot add more than 10,000 credits at once', 400)
+        
+        if credits < -10000:
+            return error_response('Cannot reduce more than 10,000 credits at once', 400)
         
         # Get teacher
         teacher = User.query.filter_by(id=teacher_id, role=UserRole.TEACHER, is_active=True).first()
         if not teacher:
             return error_response('Teacher not found', 404)
         
-        # Add credits
+        # Add or reduce credits
         old_balance = teacher.sms_count or 0
-        teacher.sms_count = old_balance + credits
+        new_balance = old_balance + credits
+        
+        # Prevent negative balance
+        if new_balance < 0:
+            return error_response(f'Cannot reduce credits. Teacher has {old_balance} credits, cannot reduce by {abs(credits)}', 400)
+        
+        teacher.sms_count = new_balance
         teacher.updated_at = datetime.utcnow()
         
         # Log the transaction
         current_user = get_current_user()
         
+        # Determine action type
+        action_type = 'Added' if credits > 0 else 'Reduced'
+        
         # Create SMS log for audit (using correct field names)
         sms_log = SmsLog(
             user_id=teacher.id,
             phone_number=teacher.phone,
-            message=f"SMS Credits Added: {credits} credits. New balance: {teacher.sms_count}. Memo: {memo}",
+            message=f"SMS Credits {action_type}: {abs(credits)} credits. New balance: {teacher.sms_count}. Memo: {memo}",
             status=SmsStatus.SENT,
             sent_by=current_user.id,
-            api_response={'type': 'credit_addition', 'added_by': f"{current_user.first_name} {current_user.last_name}", 'memo': memo},
+            api_response={'type': 'credit_adjustment', 'action': action_type.lower(), 'added_by': f"{current_user.first_name} {current_user.last_name}", 'memo': memo},
             cost=0,
             sent_at=datetime.utcnow()
         )
@@ -797,10 +809,11 @@ def add_sms_credits():
         db.session.add(sms_log)
         db.session.commit()
         
-        return success_response(f'Successfully added {credits} SMS credits to {teacher.first_name} {teacher.last_name}', {
+        return success_response(f'Successfully {action_type.lower()} {abs(credits)} SMS credits for {teacher.first_name} {teacher.last_name}', {
             'teacher_id': teacher.id,
             'teacher_name': f"{teacher.first_name} {teacher.last_name}",
-            'credits_added': credits,
+            'credits_adjusted': credits,
+            'action': action_type.lower(),
             'old_balance': old_balance,
             'new_balance': teacher.sms_count,
             'memo': memo
