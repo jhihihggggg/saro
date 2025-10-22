@@ -1,4 +1,32 @@
 <!-- Comprehensive Monthly Results with Individual Exam Columns -->
+<style>
+    /* Custom scrollbar styling for better visibility */
+    .results-table-container::-webkit-scrollbar {
+        width: 12px;
+        height: 12px;
+    }
+    
+    .results-table-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 6px;
+    }
+    
+    .results-table-container::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 6px;
+    }
+    
+    .results-table-container::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+    
+    /* For Firefox */
+    .results-table-container {
+        scrollbar-width: auto;
+        scrollbar-color: #888 #f1f1f1;
+    }
+</style>
+
 <div x-data="comprehensiveResults()" x-init="init()">
     
     <!-- Header -->
@@ -78,7 +106,7 @@
 
     <!-- Results Table -->
     <div x-show="!loading && !error && rankings.length > 0" class="bg-white shadow rounded-lg overflow-hidden">
-        <div class="overflow-x-auto" style="max-height: calc(95vh - 250px); overflow-y: auto;">
+        <div class="results-table-container overflow-x-auto overflow-y-auto" style="max-height: calc(95vh - 250px);">
             <table class="min-w-full divide-y divide-gray-200" id="resultsTable">
                 <thead class="bg-gray-50 sticky top-0 z-10">
                     <tr>
@@ -531,7 +559,7 @@ function comprehensiveResults() {
                 return;
             }
 
-            // Prepare CSV data
+            // Prepare CSV data with proper Unicode handling
             let csv = [];
             
             // Header row
@@ -547,11 +575,22 @@ function comprehensiveResults() {
             
             // Data rows
             this.rankings.forEach(rank => {
+                // Escape and properly quote fields containing special characters
+                const escapeCSV = (str) => {
+                    if (str === null || str === undefined) return '';
+                    str = String(str);
+                    // If contains comma, newline, or quote, wrap in quotes and escape quotes
+                    if (str.includes(',') || str.includes('\n') || str.includes('"') || str.includes('\r')) {
+                        return '"' + str.replace(/"/g, '""') + '"';
+                    }
+                    return str;
+                };
+                
                 let row = [
                     rank.position,
                     rank.previous_position || '-',
                     rank.roll_number || '-',
-                    `"${rank.student_name}"`, // Quote to handle commas
+                    escapeCSV(rank.student_name),
                     rank.student_phone || ''
                 ];
                 
@@ -576,8 +615,11 @@ function comprehensiveResults() {
                 csv.push(row.join(','));
             });
             
-            // Create and download file
-            const csvContent = csv.join('\n');
+            // Create CSV content with UTF-8 BOM for proper Unicode support in Excel
+            const BOM = '\uFEFF';
+            const csvContent = BOM + csv.join('\n');
+            
+            // Create blob with UTF-8 encoding
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
             const url = URL.createObjectURL(blob);
