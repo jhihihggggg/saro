@@ -105,13 +105,25 @@ function renderDocuments(documents) {
             }
         }
         
+        // Format created date
+        var createdDate = new Date(doc.created_at).toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric' 
+        });
+        var createdTime = new Date(doc.created_at).toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+        });
+        
         html += '<div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">';
         html += '<div class="flex items-center justify-between mb-2">';
         html += '<span class="text-xs px-2 py-1 rounded ' + categoryClass + '">' + category + '</span>';
         html += '<span class="text-xs text-gray-500">' + doc.file_size_mb + ' MB</span>';
         html += '</div>';
         html += '<h3 class="font-semibold text-gray-900 mb-1">' + doc.chapter_name + '</h3>';
-        html += '<p class="text-sm text-gray-600 mb-3">' + doc.class_name + ' • ' + doc.book_name + '</p>';
+        html += '<p class="text-sm text-gray-600 mb-2">' + doc.class_name + ' • ' + doc.book_name + '</p>';
+        html += '<p class="text-xs text-gray-500 mb-3">📅 Uploaded: ' + createdDate + ' at ' + createdTime + '</p>';
         html += '<a href="/api/documents/' + doc.id + '/download" class="block w-full text-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">';
         html += '<i class="fas fa-download mr-2"></i>Download';
         html += '</a>';

@@ -21,6 +21,22 @@
                         <span id="count-books" class="text-xs bg-green-600 text-white px-2 py-1 rounded-full">0</span>
                     </div>
                 </button>
+                <button onclick="filterByCategory('question-bank')" 
+                        class="w-full text-left px-4 py-3 rounded-lg hover:bg-purple-50 category-btn"
+                        data-category="question-bank">
+                    <div class="flex items-center justify-between">
+                        <span class="font-medium text-gray-700">❓ Question Banks</span>
+                        <span id="count-questions" class="text-xs bg-purple-600 text-white px-2 py-1 rounded-full">0</span>
+                    </div>
+                </button>
+                <button onclick="filterByCategory('homework')" 
+                        class="w-full text-left px-4 py-3 rounded-lg hover:bg-orange-50 category-btn"
+                        data-category="homework">
+                    <div class="flex items-center justify-between">
+                        <span class="font-medium text-gray-700">📝 Homework</span>
+                        <span id="count-homework" class="text-xs bg-orange-600 text-white px-2 py-1 rounded-full">0</span>
+                    </div>
+                </button>
             </nav>
         </div>
     </div>
@@ -50,6 +66,8 @@
                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                 <option value="all">📋 All Documents</option>
                 <option value="online-books">📖 Study Materials</option>
+                <option value="question-bank">❓ Question Banks</option>
+                <option value="homework">📝 Homework</option>
             </select>
         </div>
 
@@ -140,6 +158,17 @@
                 <input type="text" id="chapterName" required
                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                        placeholder="e.g., Chapter 1: Introduction">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Document Type *</label>
+                <select id="documentType" required
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="online-books">📖 Study Material</option>
+                    <option value="question-bank">❓ Question Bank</option>
+                    <option value="homework">📝 Homework</option>
+                </select>
+                <p class="text-xs text-gray-500 mt-1">This helps students filter documents easily</p>
             </div>
 
             <div>
@@ -261,7 +290,11 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
     formData.append('class_name', document.getElementById('className').value);
     formData.append('book_name', document.getElementById('subjectName').value);
     formData.append('chapter_name', document.getElementById('chapterName').value);
-    formData.append('description', document.getElementById('description').value + ' [online-books]');
+    
+    // Add category tag from documentType selector
+    var documentType = document.getElementById('documentType').value;
+    var description = document.getElementById('description').value;
+    formData.append('description', description + ' [' + documentType + ']');
     
     uploadBtn.disabled = true;
     uploadBtnText.textContent = 'Uploading...';
@@ -312,15 +345,25 @@ function loadDocuments() {
 
 function updateCategoryCounts() {
     var books = 0;
+    var questions = 0;
+    var homework = 0;
     
     for (var i = 0; i < allDocuments.length; i++) {
-        if (allDocuments[i].description && allDocuments[i].description.indexOf('[online-books]') !== -1) {
-            books++;
+        if (allDocuments[i].description) {
+            if (allDocuments[i].description.indexOf('[online-books]') !== -1) {
+                books++;
+            } else if (allDocuments[i].description.indexOf('[question-bank]') !== -1) {
+                questions++;
+            } else if (allDocuments[i].description.indexOf('[homework]') !== -1) {
+                homework++;
+            }
         }
     }
     
     document.getElementById('count-all').textContent = allDocuments.length;
     document.getElementById('count-books').textContent = books;
+    document.getElementById('count-questions').textContent = questions;
+    document.getElementById('count-homework').textContent = homework;
 }
 
 function filterByCategory(category) {
@@ -328,11 +371,13 @@ function filterByCategory(category) {
     
     var buttons = document.querySelectorAll('.category-btn');
     for (var i = 0; i < buttons.length; i++) {
-        buttons[i].classList.remove('active', 'bg-blue-100', 'bg-green-100');
+        buttons[i].classList.remove('active', 'bg-blue-100', 'bg-green-100', 'bg-purple-100', 'bg-orange-100');
         if (buttons[i].dataset.category === category) {
             buttons[i].classList.add('active');
             if (category === 'all') buttons[i].classList.add('bg-blue-100');
             if (category === 'online-books') buttons[i].classList.add('bg-green-100');
+            if (category === 'question-bank') buttons[i].classList.add('bg-purple-100');
+            if (category === 'homework') buttons[i].classList.add('bg-orange-100');
         }
     }
     
@@ -379,8 +424,19 @@ function renderDocuments(documents) {
     
     for (var i = 0; i < documents.length; i++) {
         var doc = documents[i];
-        var category = (doc.description && doc.description.indexOf('[online-books]') !== -1) ? 'online-books' : 'other';
-        var categoryBadge = '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">📖 Resource</span>';
+        
+        // Determine category and badge
+        var categoryBadge = '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">📋 Document</span>';
+        if (doc.description) {
+            if (doc.description.indexOf('[online-books]') !== -1) {
+                categoryBadge = '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">📖 Study Material</span>';
+            } else if (doc.description.indexOf('[question-bank]') !== -1) {
+                categoryBadge = '<span class="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">❓ Question Bank</span>';
+            } else if (doc.description.indexOf('[homework]') !== -1) {
+                categoryBadge = '<span class="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">� Homework</span>';
+            }
+        }
+        
         var uploadDate = new Date(doc.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
         var uploadTime = new Date(doc.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
         
