@@ -3,7 +3,7 @@ Authentication Routes
 Login, logout, and session management
 """
 from flask import Blueprint, request, jsonify, session, redirect, url_for, flash
-from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.security import generate_password_hash
 from models import db, User, UserRole
 from utils.auth import login_required, require_role
 from utils.response import success_response, error_response
@@ -81,17 +81,46 @@ def login():
         
         # Check password based on user role
         password_valid = False
-        
+
+        # Helper to verify hashed passwords handling str and bytes, and multiple hashing backends
+        def verify_hash(stored_hash, plain_password):
+            # Normalize bytes to str where possible
+            try:
+                if isinstance(stored_hash, (bytes, bytearray)):
+                    stored_hash = stored_hash.decode('utf-8')
+            except Exception:
+                pass
+
+            # Try werkzeug first (usually for werkzeug-generated hashes)
+            try:
+                from werkzeug.security import check_password_hash as werk_check
+                try:
+                    if isinstance(stored_hash, str):
+                        return werk_check(stored_hash, plain_password)
+                except Exception:
+                    pass
+            except Exception:
+                pass
+
+            # Fallback to bcrypt-based checker from utils.auth
+            try:
+                from utils.auth import check_password_hash as bcrypt_check
+                return bool(bcrypt_check(stored_hash, plain_password))
+            except Exception:
+                return False
+
         if user.role == UserRole.STUDENT:
-            # For students, check if password matches "student123" (legacy) or hashed password (new unique passwords)
+            # For students: last-4 digits login, legacy default, or hashed password
+            last_4_digits = formatted_phone[-4:]
             password_valid = (
-                password == "student123" or 
-                check_password_hash(user.password_hash, password)
+                password == last_4_digits or
+                password == "student123" or
+                (user.password_hash and verify_hash(user.password_hash, password))
             )
         else:
             # For teachers and super users, check hashed password
             if user.password_hash:
-                password_valid = check_password_hash(user.password_hash, password)
+                password_valid = verify_hash(user.password_hash, password)
         
         if not password_valid:
             # Handle error response based on request type
@@ -289,7 +318,7 @@ def change_password():
             return error_response('Current password and new password are required', 400)
         
         # Verify current password
-        if not user.password_hash or not check_password_hash(user.password_hash, current_password):
+        if not user.password_hash or not verify_hash(user.password_hash, current_password):
             return error_response('Current password is incorrect', 401)
         
         # Validate new password

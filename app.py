@@ -34,7 +34,7 @@ def create_app(config_name=None):
     
     # Register blueprints
     from routes.auth import auth_bp
-    from routes.users import users_bp
+    from users import users_bp  # Import from users.py (full implementation)
     from routes.batches import batches_bp
     from routes.exams import exams_bp
     from routes.questions import questions_bp
