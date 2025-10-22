@@ -146,64 +146,91 @@ function toggleSidebar() {
 
 // Navigation
 function showSection(sectionName) {
-    console.log('Showing section:', sectionName);
+    console.log('========================================');
+    console.log('🔄 SWITCHING TO SECTION:', sectionName);
+    console.log('========================================');
     
+    // Hide all sections
     document.querySelectorAll('.content-section').forEach(section => {
         section.classList.add('hidden');
     });
     
+    // Show target section
     const targetSection = document.getElementById(sectionName + 'Section');
-    if (targetSection) {
-        targetSection.classList.remove('hidden');
+    if (!targetSection) {
+        console.error('❌ Section not found:', sectionName + 'Section');
+        return;
+    }
+    
+    targetSection.classList.remove('hidden');
+    console.log('✅ Section visible:', sectionName + 'Section');
+    
+    // Trigger section-specific loading
+    if (sectionName === 'monthly-exams') {
+        console.log('📊 Monthly Exams Section');
+        console.log('  - window.studentMonthlyExams exists?', !!window.studentMonthlyExams);
         
-        // Trigger section-specific loading
-        if (sectionName === 'monthly-exams') {
-            console.log('Monthly Exams section activated');
-            console.log('window.studentMonthlyExams exists?', !!window.studentMonthlyExams);
-            if (window.studentMonthlyExams) {
-                console.log('currentUser:', window.studentMonthlyExams.currentUser);
-                console.log('userBatchId:', window.studentMonthlyExams.userBatchId);
-                // Initialize if not already done (check userBatchId instead of currentUser)
-                if (!window.studentMonthlyExams.userBatchId) {
-                    console.log('Initializing studentMonthlyExams...');
+        if (window.studentMonthlyExams) {
+            console.log('  - userBatchId:', window.studentMonthlyExams.userBatchId);
+            console.log('  - currentUser:', window.studentMonthlyExams.currentUser);
+            
+            if (!window.studentMonthlyExams.userBatchId) {
+                console.log('  → Calling init()...');
+                try {
                     window.studentMonthlyExams.init();
-                } else {
-                    console.log('studentMonthlyExams already initialized with batch:', window.studentMonthlyExams.userBatchId);
+                } catch (err) {
+                    console.error('❌ Error calling init():', err);
                 }
             } else {
-                console.error('window.studentMonthlyExams not found!');
+                console.log('  ✓ Already initialized with batch:', window.studentMonthlyExams.userBatchId);
             }
-        } else if (sectionName === 'online-resources') {
-            console.log('Online Resources section activated');
-            console.log('window.loadDocuments exists?', typeof window.loadDocuments === 'function');
-            console.log('window.allDocuments:', window.allDocuments);
-            if (typeof window.loadDocuments === 'function') {
-                if (!window.allDocuments || window.allDocuments.length === 0) {
-                    console.log('Loading documents...');
+        } else {
+            console.error('❌ window.studentMonthlyExams NOT FOUND!');
+            console.error('  → The partial may not have loaded');
+            console.error('  → Check: {% include \'partials/student_monthly_exams.html\' %}');
+        }
+    } 
+    else if (sectionName === 'online-resources') {
+        console.log('📚 Online Resources Section');
+        console.log('  - window.loadDocuments type:', typeof window.loadDocuments);
+        console.log('  - window.allDocuments:', window.allDocuments);
+        
+        if (typeof window.loadDocuments === 'function') {
+            if (!window.allDocuments || window.allDocuments.length === 0) {
+                console.log('  → Calling loadDocuments()...');
+                try {
                     window.loadDocuments();
-                } else {
-                    console.log('Documents already loaded, count:', window.allDocuments.length);
+                } catch (err) {
+                    console.error('❌ Error calling loadDocuments():', err);
                 }
             } else {
-                console.error('window.loadDocuments not found!');
+                console.log('  ✓ Already loaded:', window.allDocuments.length, 'documents');
             }
+        } else {
+            console.error('❌ window.loadDocuments NOT FOUND!');
+            console.error('  → The partial may not have loaded');
+            console.error('  → Check: {% include \'partials/student_documents.html\' %}');
         }
     }
     
+    // Update navigation styling
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('text-indigo-600', 'bg-indigo-100');
         item.classList.add('text-gray-600');
     });
     
-    const activeNav = document.querySelector(\`[data-section="\${sectionName}"]\`);
+    const activeNav = document.querySelector('[data-section="' + sectionName + '"]');
     if (activeNav) {
         activeNav.classList.remove('text-gray-600');
         activeNav.classList.add('text-indigo-600', 'bg-indigo-100');
     }
     
+    // Close mobile sidebar
     if (window.innerWidth < 768) {
         toggleSidebar();
     }
+    
+    console.log('========================================');
 }
 
 document.querySelectorAll('.nav-item').forEach(item => {
@@ -227,21 +254,26 @@ function loadDashboardStats() {
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('=== STUDENT DASHBOARD LOADED ===');
-    console.log('window.studentMonthlyExams available?', !!window.studentMonthlyExams);
-    console.log('window.loadDocuments available?', typeof window.loadDocuments === 'function');
-    console.log('window.allDocuments available?', !!window.allDocuments);
     
-    loadDashboardStats();
-    
-    // Force initialize partials if they exist
+    // Wait for all partials to load
     setTimeout(function() {
+        console.log('window.studentMonthlyExams available?', !!window.studentMonthlyExams);
+        console.log('window.loadDocuments available?', typeof window.loadDocuments === 'function');
+        console.log('window.allDocuments available?', !!window.allDocuments);
+        
         if (!window.studentMonthlyExams) {
             console.error('❌ studentMonthlyExams not loaded! Check if partial is included.');
         }
         if (typeof window.loadDocuments !== 'function') {
             console.error('❌ loadDocuments not loaded! Check if partial is included.');
         }
-    }, 500);
+        
+        // Verify sections exist
+        console.log('monthly-examsSection exists?', !!document.getElementById('monthly-examsSection'));
+        console.log('online-resourcesSection exists?', !!document.getElementById('online-resourcesSection'));
+    }, 100);
+    
+    loadDashboardStats();
 });
 </script>
 
