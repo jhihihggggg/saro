@@ -562,6 +562,11 @@ function comprehensiveResults() {
             // Prepare CSV data with proper Unicode handling
             let csv = [];
             
+            // Add coaching center header at the top
+            csv.push('"জি. এস. স্টুডেন্ট নার্সিং সেন্টার, মহাদেবপুর, নওগাঁ।"');
+            csv.push(`"মাসিক পরীক্ষার ফলাফল - ${this.examData?.title || 'Monthly Exam'}"`);
+            csv.push('""'); // Empty row for spacing
+            
             // Header row (wrapped in quotes to prevent issues)
             let headers = ['Rank', 'Previous Rank', 'Roll Number', 'Student Name', 'Phone'];
             
@@ -597,7 +602,7 @@ function comprehensiveResults() {
                     escapeCSV(rank.previous_position || '-'),
                     escapeCSV(rank.roll_number || '-'),
                     escapeCSV(rank.student_name),
-                    escapeCSV(rank.student_phone || '')
+                    forceText(rank.student_phone || '') // Force phone as text to prevent scientific notation
                 ];
                 
                 // Add individual exam marks (force text to prevent date interpretation)
