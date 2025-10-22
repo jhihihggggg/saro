@@ -40,28 +40,38 @@
         currentStudentId: null,
         
         init: function() {
+            console.log('studentMonthlyExams.init() called');
             this.currentUser = {{ user|tojson if user else 'null' }};
             if (this.currentUser && this.currentUser.id) {
                 this.currentStudentId = this.currentUser.id;
+                console.log('Current student ID:', this.currentStudentId);
             }
+            console.log('Loading user batches...');
             this.loadUserBatches();
         },
         
         loadUserBatches: function() {
             var self = this;
+            console.log('Fetching user batches from /api/students/me/batches');
             fetch('/api/students/me/batches')
-                .then(function(response) { return response.json(); })
+                .then(function(response) {
+                    console.log('Batches response status:', response.status);
+                    return response.json();
+                })
                 .then(function(data) {
+                    console.log('Batches data:', data);
                     if (data.success && data.data && data.data.batches && data.data.batches.length > 0) {
                         self.userBatchId = data.data.batches[0].id;
+                        console.log('User batch ID:', self.userBatchId);
                         self.loadMonthlyExams();
                     } else {
+                        console.log('No batches found for user');
                         document.getElementById('examsLoading').classList.add('hidden');
                         document.getElementById('noBatchMessage').classList.remove('hidden');
                     }
                 })
                 .catch(function(error) {
-                    console.error('Error:', error);
+                    console.error('Error loading batches:', error);
                     document.getElementById('examsLoading').classList.add('hidden');
                     document.getElementById('noBatchMessage').classList.remove('hidden');
                 });
@@ -69,20 +79,25 @@
         
         loadMonthlyExams: function() {
             var self = this;
+            console.log('Fetching monthly exams from /api/monthly-exams/');
             fetch('/api/monthly-exams/')
-                .then(function(response) { return response.json(); })
+                .then(function(response) {
+                    console.log('Monthly exams response status:', response.status);
+                    return response.json();
+                })
                 .then(function(data) {
+                    console.log('Monthly exams data:', data);
                     if (data.success && data.data && data.data.exams) {
                         var myExams = data.data.exams.filter(function(exam) {
                             return exam.batch_id === self.userBatchId;
                         });
+                        console.log('Filtered exams for batch', self.userBatchId + ':', myExams.length, 'exams');
                         self.renderExams(myExams);
                     }
                     document.getElementById('examsLoading').classList.add('hidden');
-                    document.getElementById('examsContainer').classList.remove('hidden');
                 })
                 .catch(function(error) {
-                    console.error('Error:', error);
+                    console.error('Error loading exams:', error);
                     document.getElementById('examsLoading').classList.add('hidden');
                 });
         },

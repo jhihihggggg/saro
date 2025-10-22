@@ -155,15 +155,31 @@ function showSection(sectionName) {
         // Trigger section-specific loading
         if (sectionName === 'monthly-exams') {
             console.log('Monthly Exams section activated');
-            if (window.studentMonthlyExams && !window.studentMonthlyExams.currentUser) {
-                console.log('Initializing studentMonthlyExams...');
-                window.studentMonthlyExams.init();
+            console.log('window.studentMonthlyExams exists?', !!window.studentMonthlyExams);
+            if (window.studentMonthlyExams) {
+                console.log('currentUser:', window.studentMonthlyExams.currentUser);
+                if (!window.studentMonthlyExams.currentUser) {
+                    console.log('Initializing studentMonthlyExams...');
+                    window.studentMonthlyExams.init();
+                } else {
+                    console.log('studentMonthlyExams already initialized');
+                }
+            } else {
+                console.error('window.studentMonthlyExams not found!');
             }
         } else if (sectionName === 'online-resources') {
             console.log('Online Resources section activated');
-            if (typeof loadDocuments === 'function' && window.allDocuments && window.allDocuments.length === 0) {
-                console.log('Loading documents...');
-                loadDocuments();
+            console.log('window.loadDocuments exists?', typeof window.loadDocuments === 'function');
+            console.log('window.allDocuments:', window.allDocuments);
+            if (typeof window.loadDocuments === 'function') {
+                if (!window.allDocuments || window.allDocuments.length === 0) {
+                    console.log('Loading documents...');
+                    window.loadDocuments();
+                } else {
+                    console.log('Documents already loaded, count:', window.allDocuments.length);
+                }
+            } else {
+                console.error('window.loadDocuments not found!');
             }
         }
     }

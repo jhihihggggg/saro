@@ -31,13 +31,17 @@ window.currentFilter = 'all';
 window.allDocuments = [];
 
 window.loadDocuments = function() {
-    console.log('Loading documents...');
+    console.log('Loading documents from /api/documents/');
     fetch('/api/documents/?include_inactive=true')
-        .then(function(response) { return response.json(); })
+        .then(function(response) {
+            console.log('Documents response status:', response.status);
+            return response.json();
+        })
         .then(function(data) {
-            console.log('Documents loaded:', data);
+            console.log('Documents data:', data);
             if (data.success && data.data && data.data.documents) {
                 window.allDocuments = data.data.documents;
+                console.log('Total documents loaded:', window.allDocuments.length);
                 renderDocuments(window.allDocuments);
             }
             document.getElementById('documentsLoading').classList.add('hidden');
