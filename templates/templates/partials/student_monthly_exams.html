@@ -90,28 +90,48 @@ console.log('📊 Monthly Exams Module Loading v2.0.1');
                 })
                 .then(function(data) {
                     console.log('Monthly exams data:', data);
-                    if (data.success && data.data && data.data.exams) {
-                        var myExams = data.data.exams.filter(function(exam) {
-                            return exam.batch_id === self.userBatchId;
-                        });
-                        console.log('Filtered exams for batch', self.userBatchId + ':', myExams.length, 'exams');
+                    if (data.success && data.data) {
+                        // API returns data.data as the array of exams directly
+                        var myExams = Array.isArray(data.data) ? data.data : [];
+                        console.log('Found', myExams.length, 'exams for user');
+                        
+                        // Filter by batch if needed (API already filters for students)
+                        if (self.userBatchId && myExams.length > 0) {
+                            myExams = myExams.filter(function(exam) {
+                                return exam.batch_id === self.userBatchId;
+                            });
+                            console.log('Filtered to', myExams.length, 'exams for batch', self.userBatchId);
+                        }
+                        
                         self.renderExams(myExams);
+                    } else {
+                        console.log('No exams data in response');
+                        self.renderExams([]);
                     }
                     document.getElementById('examsLoading').classList.add('hidden');
+                    document.getElementById('examsContainer').classList.remove('hidden');
                 })
                 .catch(function(error) {
                     console.error('Error loading exams:', error);
                     document.getElementById('examsLoading').classList.add('hidden');
+                    document.getElementById('examsContainer').classList.remove('hidden');
                 });
         },
         
         renderExams: function(exams) {
             var container = document.getElementById('examsContainer');
+            container.classList.remove('hidden');
+            
             if (exams.length === 0) {
-                container.innerHTML = '<div class="text-center py-8 text-gray-500"><p>No exams found for your batch</p></div>';
+                container.innerHTML = '<div class="text-center py-8 text-gray-500">' +
+                    '<i class="fas fa-inbox text-4xl mb-3"></i>' +
+                    '<p class="font-medium">No exams found for your batch</p>' +
+                    '<p class="text-sm mt-2">Your teacher hasn\'t created any monthly exams yet</p>' +
+                    '</div>';
                 return;
             }
             
+            console.log('Rendering', exams.length, 'exams');
             var html = '';
             for (var i = 0; i < exams.length; i++) {
                 var exam = exams[i];
@@ -119,7 +139,7 @@ console.log('📊 Monthly Exams Module Loading v2.0.1');
                 html += '<div class="flex justify-between items-start">';
                 html += '<div>';
                 html += '<h3 class="text-lg font-semibold text-gray-900">' + exam.title + '</h3>';
-                html += '<p class="text-sm text-gray-600 mt-1"><i class="fas fa-calendar mr-1"></i>' + exam.month + '/' + exam.year + '</p>';
+                html += '<p class="text-sm text-gray-600 mt-1"><i class="fas fa-calendar mr-1"></i>' + exam.month_name + ' ' + exam.year + '</p>';
                 html += '<p class="text-sm text-gray-600"><i class="fas fa-users mr-1"></i>' + exam.batch_name + '</p>';
                 html += '</div>';
                 html += '<button onclick="studentMonthlyExams.viewExamDetails(' + exam.id + ')" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm">';
@@ -129,6 +149,7 @@ console.log('📊 Monthly Exams Module Loading v2.0.1');
                 html += '</div>';
             }
             container.innerHTML = html;
+            console.log('Exams rendered successfully');
         },
         
         viewExamDetails: function(examId) {
