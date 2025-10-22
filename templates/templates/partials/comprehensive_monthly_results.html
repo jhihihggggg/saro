@@ -106,8 +106,8 @@
 
     <!-- Results Table -->
     <div x-show="!loading && !error && rankings.length > 0" class="bg-white shadow rounded-lg overflow-hidden">
-        <div class="results-table-container overflow-x-auto overflow-y-auto" style="max-height: calc(95vh - 250px);">
-            <table class="min-w-full divide-y divide-gray-200" id="resultsTable">
+        <div class="results-table-container overflow-x-auto overflow-y-auto" style="max-height: 600px; min-width: 100%;">
+            <table class="min-w-full divide-y divide-gray-200 table-auto" id="resultsTable" style="width: max-content;">
                 <thead class="bg-gray-50 sticky top-0 z-10">
                     <tr>
                         <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Rank</th>
@@ -562,7 +562,7 @@ function comprehensiveResults() {
             // Prepare CSV data with proper Unicode handling
             let csv = [];
             
-            // Header row
+            // Header row (wrapped in quotes to prevent issues)
             let headers = ['Rank', 'Previous Rank', 'Roll Number', 'Student Name', 'Phone'];
             
             // Add individual exam headers
@@ -571,45 +571,52 @@ function comprehensiveResults() {
             });
             
             headers.push('Exam Total', 'Attendance', 'Total Obtained', 'Total Marks', 'Percentage', 'Grade');
-            csv.push(headers.join(','));
+            
+            // Quote all headers
+            csv.push(headers.map(h => `"${h}"`).join(','));
             
             // Data rows
             this.rankings.forEach(rank => {
-                // Escape and properly quote fields containing special characters
+                // Escape and properly quote fields - force text format with tab prefix for numeric fields
                 const escapeCSV = (str) => {
-                    if (str === null || str === undefined) return '';
+                    if (str === null || str === undefined) return '""';
                     str = String(str);
-                    // If contains comma, newline, or quote, wrap in quotes and escape quotes
-                    if (str.includes(',') || str.includes('\n') || str.includes('"') || str.includes('\r')) {
-                        return '"' + str.replace(/"/g, '""') + '"';
-                    }
-                    return str;
+                    // Wrap in quotes and escape internal quotes
+                    return '"' + str.replace(/"/g, '""') + '"';
+                };
+                
+                // Force text format for date-like values by adding tab character
+                const forceText = (str) => {
+                    if (str === null || str === undefined) return '""';
+                    // Add tab character to force Excel to treat as text
+                    return '"' + '\t' + String(str).replace(/"/g, '""') + '"';
                 };
                 
                 let row = [
-                    rank.position,
-                    rank.previous_position || '-',
-                    rank.roll_number || '-',
+                    escapeCSV(rank.position),
+                    escapeCSV(rank.previous_position || '-'),
+                    escapeCSV(rank.roll_number || '-'),
                     escapeCSV(rank.student_name),
-                    rank.student_phone || ''
+                    escapeCSV(rank.student_phone || '')
                 ];
                 
-                // Add individual exam marks
+                // Add individual exam marks (force text to prevent date interpretation)
                 this.individualExams.forEach(exam => {
                     if (rank.individual_marks && rank.individual_marks[exam.id]) {
-                        row.push(escapeCSV((rank.individual_marks[exam.id].marks_obtained || 0) + '/' + (rank.individual_marks[exam.id].total_marks || 0)));
+                        const marksStr = (rank.individual_marks[exam.id].marks_obtained || 0) + '/' + (rank.individual_marks[exam.id].total_marks || 0);
+                        row.push(forceText(marksStr));
                     } else {
-                        row.push(escapeCSV('0/0'));
+                        row.push(forceText('0/0'));
                     }
                 });
                 
                 row.push(
-                    rank.total_exam_marks || 0,
-                    escapeCSV((rank.attendance_marks || 0) + '/' + (rank.total_attendance_days || 0)),
-                    rank.final_total || 0,
-                    rank.total_possible || 0,
-                    rank.percentage.toFixed(1) + '%',
-                    rank.grade
+                    escapeCSV(rank.total_exam_marks || 0),
+                    forceText((rank.attendance_marks || 0) + '/' + (rank.total_attendance_days || 0)),
+                    escapeCSV(rank.final_total || 0),
+                    escapeCSV(rank.total_possible || 0),
+                    escapeCSV(rank.percentage.toFixed(1) + '%'),
+                    escapeCSV(rank.grade)
                 );
                 
                 csv.push(row.join(','));
