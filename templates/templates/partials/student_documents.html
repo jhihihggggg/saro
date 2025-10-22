@@ -91,12 +91,28 @@ function renderDocuments(documents) {
     container.innerHTML = html;
 }
 
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    var section = document.getElementById('online-resourcesSection');
+    if (section && !section.classList.contains('hidden')) {
+        console.log('Online Resources: Initializing on page load');
+        loadDocuments();
+    }
+});
+
+// Watch for section visibility changes
 if (document.getElementById('online-resourcesSection')) {
-    setTimeout(function() {
-        var section = document.getElementById('online-resourcesSection');
-        if (section && !section.classList.contains('hidden')) {
-            loadDocuments();
-        }
-    }, 100);
+    var resourcesObserver = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            var section = document.getElementById('online-resourcesSection');
+            if (section && !section.classList.contains('hidden') && allDocuments.length === 0) {
+                console.log('Online Resources: Section became visible, loading...');
+                loadDocuments();
+                resourcesObserver.disconnect();
+            }
+        });
+    });
+    
+    resourcesObserver.observe(document.body, { attributes: true, subtree: true, attributeFilter: ['class'] });
 }
 </script>

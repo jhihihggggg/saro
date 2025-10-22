@@ -261,11 +261,22 @@
     
     window.studentMonthlyExams = studentMonthlyExams;
     
+    // Initialize when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        var section = document.getElementById('monthly-examsSection');
+        if (section && !section.classList.contains('hidden')) {
+            console.log('Student Monthly Exams: Initializing on page load');
+            studentMonthlyExams.init();
+        }
+    });
+    
+    // Watch for section visibility changes
     if (document.getElementById('monthly-examsSection')) {
         var observer = new MutationObserver(function(mutations) {
             mutations.forEach(function(mutation) {
                 var section = document.getElementById('monthly-examsSection');
                 if (section && !section.classList.contains('hidden') && !studentMonthlyExams.currentUser) {
+                    console.log('Student Monthly Exams: Section became visible, initializing...');
                     studentMonthlyExams.init();
                     observer.disconnect();
                 }
@@ -273,10 +284,6 @@
         });
         
         observer.observe(document.body, { attributes: true, subtree: true, attributeFilter: ['class'] });
-        
-        if (!document.getElementById('monthly-examsSection').classList.contains('hidden')) {
-            studentMonthlyExams.init();
-        }
     }
 })();
 </script>
