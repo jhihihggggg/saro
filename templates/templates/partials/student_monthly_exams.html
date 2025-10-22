@@ -55,26 +55,40 @@ console.log('📊 Monthly Exams Module Loading v2.0.1');
         
         loadUserBatches: function() {
             var self = this;
+            console.log('========================================');
+            console.log('📚 LOADING USER BATCHES');
+            console.log('========================================');
             console.log('Fetching user batches from /api/students/me/batches');
             fetch('/api/students/me/batches')
                 .then(function(response) {
                     console.log('Batches response status:', response.status);
+                    if (!response.ok) {
+                        console.error('❌ Batches request failed with status:', response.status);
+                    }
                     return response.json();
                 })
                 .then(function(data) {
-                    console.log('Batches data:', data);
+                    console.log('📦 RAW Batches response:', JSON.stringify(data, null, 2));
+                    
                     if (data.success && data.data && data.data.batches && data.data.batches.length > 0) {
+                        console.log('✅ Found', data.data.batches.length, 'batch(es)');
                         self.userBatchId = data.data.batches[0].id;
-                        console.log('User batch ID:', self.userBatchId);
+                        console.log('✅ Using batch ID:', self.userBatchId, '- Batch name:', data.data.batches[0].name);
                         self.loadMonthlyExams();
                     } else {
-                        console.log('No batches found for user');
+                        console.log('❌ No batches found for user');
+                        console.log('   data.success:', data.success);
+                        console.log('   data.data:', data.data);
+                        console.log('   data.data.batches:', data.data ? data.data.batches : 'N/A');
                         document.getElementById('examsLoading').classList.add('hidden');
                         document.getElementById('noBatchMessage').classList.remove('hidden');
                     }
+                    console.log('========================================');
                 })
                 .catch(function(error) {
-                    console.error('Error loading batches:', error);
+                    console.error('========================================');
+                    console.error('❌ ERROR loading batches:', error);
+                    console.error('========================================');
                     document.getElementById('examsLoading').classList.add('hidden');
                     document.getElementById('noBatchMessage').classList.remove('hidden');
                 });
@@ -82,37 +96,57 @@ console.log('📊 Monthly Exams Module Loading v2.0.1');
         
         loadMonthlyExams: function() {
             var self = this;
+            console.log('========================================');
+            console.log('📊 LOADING MONTHLY EXAMS');
+            console.log('========================================');
+            console.log('Current batch ID:', self.userBatchId);
             console.log('Fetching monthly exams from /api/monthly-exams/');
             fetch('/api/monthly-exams/')
                 .then(function(response) {
                     console.log('Monthly exams response status:', response.status);
+                    if (!response.ok) {
+                        console.error('❌ Exams request failed with status:', response.status);
+                    }
                     return response.json();
                 })
                 .then(function(data) {
-                    console.log('Monthly exams data:', data);
+                    console.log('📦 RAW Monthly exams response:', JSON.stringify(data, null, 2));
+                    
                     if (data.success && data.data) {
                         // API returns data.data as the array of exams directly
                         var myExams = Array.isArray(data.data) ? data.data : [];
-                        console.log('Found', myExams.length, 'exams for user');
+                        console.log('✅ API returned', myExams.length, 'total exams');
+                        
+                        // Log each exam
+                        myExams.forEach(function(exam, index) {
+                            console.log('  Exam', index + 1 + ':', exam.title, '- Batch ID:', exam.batch_id, '- Batch Name:', exam.batch_name);
+                        });
                         
                         // Filter by batch if needed (API already filters for students)
                         if (self.userBatchId && myExams.length > 0) {
+                            var beforeFilter = myExams.length;
                             myExams = myExams.filter(function(exam) {
                                 return exam.batch_id === self.userBatchId;
                             });
-                            console.log('Filtered to', myExams.length, 'exams for batch', self.userBatchId);
+                            console.log('🔍 Filtered from', beforeFilter, 'to', myExams.length, 'exams for batch ID', self.userBatchId);
                         }
                         
+                        console.log('✅ Final exam count to display:', myExams.length);
                         self.renderExams(myExams);
                     } else {
-                        console.log('No exams data in response');
+                        console.log('❌ No exams data in response');
+                        console.log('   data.success:', data.success);
+                        console.log('   data.data:', data.data);
                         self.renderExams([]);
                     }
                     document.getElementById('examsLoading').classList.add('hidden');
                     document.getElementById('examsContainer').classList.remove('hidden');
+                    console.log('========================================');
                 })
                 .catch(function(error) {
-                    console.error('Error loading exams:', error);
+                    console.error('========================================');
+                    console.error('❌ ERROR loading exams:', error);
+                    console.error('========================================');
                     document.getElementById('examsLoading').classList.add('hidden');
                     document.getElementById('examsContainer').classList.remove('hidden');
                 });
