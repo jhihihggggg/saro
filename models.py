@@ -287,6 +287,8 @@ class Fee(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     batch_id = db.Column(db.Integer, db.ForeignKey('batches.id'), nullable=False)
     amount = db.Column(Numeric(10, 2), nullable=False)
+    exam_fee = db.Column(Numeric(10, 2), default=0.00)  # New: Exam fee
+    others_fee = db.Column(Numeric(10, 2), default=0.00)  # New: Others fee
     due_date = db.Column(db.Date, nullable=False)
     paid_date = db.Column(db.Date, nullable=True)
     status = db.Column(db.Enum(FeeStatus), default=FeeStatus.PENDING)
