@@ -132,6 +132,10 @@
 </div>
 
 <script>
+// Student Dashboard v2.0.1 - Build: 2025-10-22-19:30
+// Fixed: window.loadDocuments reference, improved initialization logic
+console.log('📚 Student Dashboard Script Loading v2.0.1');
+
 // Toggle sidebar for mobile
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
@@ -158,11 +162,13 @@ function showSection(sectionName) {
             console.log('window.studentMonthlyExams exists?', !!window.studentMonthlyExams);
             if (window.studentMonthlyExams) {
                 console.log('currentUser:', window.studentMonthlyExams.currentUser);
-                if (!window.studentMonthlyExams.currentUser) {
+                console.log('userBatchId:', window.studentMonthlyExams.userBatchId);
+                // Initialize if not already done (check userBatchId instead of currentUser)
+                if (!window.studentMonthlyExams.userBatchId) {
                     console.log('Initializing studentMonthlyExams...');
                     window.studentMonthlyExams.init();
                 } else {
-                    console.log('studentMonthlyExams already initialized');
+                    console.log('studentMonthlyExams already initialized with batch:', window.studentMonthlyExams.userBatchId);
                 }
             } else {
                 console.error('window.studentMonthlyExams not found!');
@@ -220,7 +226,22 @@ function loadDashboardStats() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('=== STUDENT DASHBOARD LOADED ===');
+    console.log('window.studentMonthlyExams available?', !!window.studentMonthlyExams);
+    console.log('window.loadDocuments available?', typeof window.loadDocuments === 'function');
+    console.log('window.allDocuments available?', !!window.allDocuments);
+    
     loadDashboardStats();
+    
+    // Force initialize partials if they exist
+    setTimeout(function() {
+        if (!window.studentMonthlyExams) {
+            console.error('❌ studentMonthlyExams not loaded! Check if partial is included.');
+        }
+        if (typeof window.loadDocuments !== 'function') {
+            console.error('❌ loadDocuments not loaded! Check if partial is included.');
+        }
+    }, 500);
 });
 </script>
 
