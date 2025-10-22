@@ -597,15 +597,15 @@ function comprehensiveResults() {
                 // Add individual exam marks
                 this.individualExams.forEach(exam => {
                     if (rank.individual_marks && rank.individual_marks[exam.id]) {
-                        row.push((rank.individual_marks[exam.id].marks_obtained || 0) + '/' + (rank.individual_marks[exam.id].total_marks || 0));
+                        row.push(escapeCSV((rank.individual_marks[exam.id].marks_obtained || 0) + '/' + (rank.individual_marks[exam.id].total_marks || 0)));
                     } else {
-                        row.push('0/0');
+                        row.push(escapeCSV('0/0'));
                     }
                 });
                 
                 row.push(
                     rank.total_exam_marks || 0,
-                    (rank.attendance_marks || 0) + '/' + (rank.total_attendance_days || 0),
+                    escapeCSV((rank.attendance_marks || 0) + '/' + (rank.total_attendance_days || 0)),
                     rank.final_total || 0,
                     rank.total_possible || 0,
                     rank.percentage.toFixed(1) + '%',
