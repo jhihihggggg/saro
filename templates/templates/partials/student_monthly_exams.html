@@ -122,15 +122,9 @@ console.log('📊 Monthly Exams Module Loading v2.0.1');
                             console.log('  Exam', index + 1 + ':', exam.title, '- Batch ID:', exam.batch_id, '- Batch Name:', exam.batch_name);
                         });
                         
-                        // Filter by batch if needed (API already filters for students)
-                        if (self.userBatchId && myExams.length > 0) {
-                            var beforeFilter = myExams.length;
-                            myExams = myExams.filter(function(exam) {
-                                return exam.batch_id === self.userBatchId;
-                            });
-                            console.log('🔍 Filtered from', beforeFilter, 'to', myExams.length, 'exams for batch ID', self.userBatchId);
-                        }
-                        
+                        // SHOW ALL EXAMS - Don't filter by batch
+                        // Students can see exams from all batches
+                        console.log('✅ Showing ALL exams (no batch filtering)');
                         console.log('✅ Final exam count to display:', myExams.length);
                         self.renderExams(myExams);
                     } else {

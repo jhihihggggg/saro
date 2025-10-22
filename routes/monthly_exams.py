@@ -64,12 +64,8 @@ def get_monthly_exams():
         
         query = MonthlyExam.query
         
-        # Filter by user role
-        if current_user.role == UserRole.STUDENT:
-            user_batch_ids = [b.id for b in current_user.batches if b.is_active]
-            if not user_batch_ids:
-                return success_response('No monthly exams found', [])
-            query = query.filter(MonthlyExam.batch_id.in_(user_batch_ids))
+        # Students can now see ALL exams from all batches
+        # No filtering by user role - removed batch restriction for students
         
         # Apply filters
         if batch_id:
