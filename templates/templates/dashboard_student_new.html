@@ -142,6 +142,8 @@ function toggleSidebar() {
 
 // Navigation
 function showSection(sectionName) {
+    console.log('Showing section:', sectionName);
+    
     document.querySelectorAll('.content-section').forEach(section => {
         section.classList.add('hidden');
     });
@@ -149,6 +151,21 @@ function showSection(sectionName) {
     const targetSection = document.getElementById(sectionName + 'Section');
     if (targetSection) {
         targetSection.classList.remove('hidden');
+        
+        // Trigger section-specific loading
+        if (sectionName === 'monthly-exams') {
+            console.log('Monthly Exams section activated');
+            if (window.studentMonthlyExams && !window.studentMonthlyExams.currentUser) {
+                console.log('Initializing studentMonthlyExams...');
+                window.studentMonthlyExams.init();
+            }
+        } else if (sectionName === 'online-resources') {
+            console.log('Online Resources section activated');
+            if (typeof loadDocuments === 'function' && window.allDocuments && window.allDocuments.length === 0) {
+                console.log('Loading documents...');
+                loadDocuments();
+            }
+        }
     }
     
     document.querySelectorAll('.nav-item').forEach(item => {

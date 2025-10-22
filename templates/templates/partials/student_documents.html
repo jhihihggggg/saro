@@ -26,28 +26,31 @@
 </div>
 
 <script>
-var currentFilter = 'all';
-var allDocuments = [];
+// Make variables global for access from parent
+window.currentFilter = 'all';
+window.allDocuments = [];
 
-function loadDocuments() {
+window.loadDocuments = function() {
+    console.log('Loading documents...');
     fetch('/api/documents/?include_inactive=true')
         .then(function(response) { return response.json(); })
         .then(function(data) {
+            console.log('Documents loaded:', data);
             if (data.success && data.data && data.data.documents) {
-                allDocuments = data.data.documents;
-                renderDocuments(allDocuments);
+                window.allDocuments = data.data.documents;
+                renderDocuments(window.allDocuments);
             }
             document.getElementById('documentsLoading').classList.add('hidden');
             document.getElementById('documentsContainer').classList.remove('hidden');
         })
         .catch(function(error) {
-            console.error('Error:', error);
+            console.error('Error loading documents:', error);
             document.getElementById('documentsLoading').classList.add('hidden');
         });
-}
+};
 
 function filterDocuments(category) {
-    currentFilter = category;
+    window.currentFilter = category;
     var buttons = document.querySelectorAll('.filter-btn');
     buttons.forEach(function(btn) {
         btn.classList.remove('bg-indigo-600', 'text-white');
@@ -56,9 +59,9 @@ function filterDocuments(category) {
     event.target.classList.remove('bg-gray-200', 'text-gray-700');
     event.target.classList.add('bg-indigo-600', 'text-white');
     
-    var filtered = allDocuments;
+    var filtered = window.allDocuments;
     if (category !== 'all') {
-        filtered = allDocuments.filter(function(doc) {
+        filtered = window.allDocuments.filter(function(doc) {
             return doc.description && doc.description.indexOf('[' + category + ']') !== -1;
         });
     }
@@ -96,7 +99,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var section = document.getElementById('online-resourcesSection');
     if (section && !section.classList.contains('hidden')) {
         console.log('Online Resources: Initializing on page load');
-        loadDocuments();
+        window.loadDocuments();
     }
 });
 
@@ -105,9 +108,9 @@ if (document.getElementById('online-resourcesSection')) {
     var resourcesObserver = new MutationObserver(function(mutations) {
         mutations.forEach(function(mutation) {
             var section = document.getElementById('online-resourcesSection');
-            if (section && !section.classList.contains('hidden') && allDocuments.length === 0) {
+            if (section && !section.classList.contains('hidden') && window.allDocuments.length === 0) {
                 console.log('Online Resources: Section became visible, loading...');
-                loadDocuments();
+                window.loadDocuments();
                 resourcesObserver.disconnect();
             }
         });
