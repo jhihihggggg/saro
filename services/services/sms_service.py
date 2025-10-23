@@ -19,8 +19,8 @@ class SMSConfig:
     """SMS Configuration"""
     api_key: str
     sender_id: str
-    api_url: str = "https://api.bulksmsbd.net/api/v1/send"
-    balance_url: str = "https://api.bulksmsbd.net/api/v1/balance"
+    api_url: str = "http://bulksmsbd.net/api/smsapi"
+    balance_url: str = "http://bulksmsbd.net/api/getBalanceApi"
 
 @dataclass
 class SMSMessage:
@@ -78,7 +78,7 @@ class SMSService:
         )
     
     def check_balance(self) -> Dict[str, Any]:
-        """Check SMS balance"""
+        """Check SMS balance using BulkSMSBD API"""
         if not self.config.api_key:
             return {
                 'success': False,
@@ -87,23 +87,25 @@ class SMSService:
             }
         
         try:
-            headers = {
-                'Content-Type': 'application/json',
-                'Authorization': f'Bearer {self.config.api_key}'
+            # BulkSMSBD Balance API format: GET http://bulksmsbd.net/api/getBalanceApi?api_key=YOUR_API_KEY
+            params = {
+                'api_key': self.config.api_key
             }
             
             response = requests.get(
                 self.config.balance_url,
-                headers=headers,
+                params=params,
                 timeout=10
             )
             
             if response.status_code == 200:
+                # Response format: {"balance":"994"}
                 data = response.json()
+                balance = int(data.get('balance', 0)) if data.get('balance') else 0
                 return {
                     'success': True,
-                    'balance': data.get('balance', 0),
-                    'currency': data.get('currency', 'BDT')
+                    'balance': balance,
+                    'currency': 'BDT'
                 }
             else:
                 return {
@@ -121,7 +123,7 @@ class SMSService:
             }
     
     def send_sms(self, message: SMSMessage, user_id: Optional[int] = None) -> SMSResult:
-        """Send single SMS"""
+        """Send single SMS using BulkSMSBD API"""
         if not self.config.api_key:
             return SMSResult(
                 success=False,
@@ -129,24 +131,24 @@ class SMSService:
             )
         
         try:
-            # Prepare message data
-            payload = {
-                'to': self.clean_phone_number(message.recipient),
-                'message': message.message,
-                'sender_id': message.sender_id or self.config.sender_id,
-                'unicode': '1' if self.contains_unicode(message.message) else '0'
+            # Format phone number for Bangladesh
+            formatted_phone = self.clean_phone_number(message.recipient)
+            if not formatted_phone.startswith('88'):
+                formatted_phone = '88' + formatted_phone
+            
+            # BulkSMSBD API format: GET with parameters
+            params = {
+                'api_key': self.config.api_key,
+                'type': 'text',
+                'number': formatted_phone,
+                'senderid': message.sender_id or self.config.sender_id,
+                'message': message.message
             }
             
-            headers = {
-                'Content-Type': 'application/json',
-                'Authorization': f'Bearer {self.config.api_key}'
-            }
-            
-            # Send request
-            response = requests.post(
+            # Send request using GET method
+            response = requests.get(
                 self.config.api_url,
-                json=payload,
-                headers=headers,
+                params=params,
                 timeout=30
             )
             
@@ -313,22 +315,32 @@ def send_bulk_attendance_sms(attendance_data, batch_name, date, teacher_name):
             return [SMSResult(success=False, error=str(e))]
     
     def _parse_response(self, response: requests.Response, message: SMSMessage, user_id: Optional[int]) -> SMSResult:
-        """Parse API response"""
+        """Parse BulkSMSBD API response"""
         try:
             if response.status_code == 200:
-                data = response.json()
-                
-                if data.get('status') == 'success':
-                    return SMSResult(
-                        success=True,
-                        message_id=data.get('message_id'),
-                        cost=float(data.get('cost', 0)),
-                        balance_remaining=float(data.get('balance', 0))
-                    )
-                else:
+                try:
+                    data = response.json()
+                    response_code = data.get('response_code')
+                    success_message = data.get('success_message', '')
+                    error_message = data.get('error_message', '')
+                    
+                    # BulkSMSBD success codes: 200 or 202
+                    if response_code in [200, 202]:
+                        return SMSResult(
+                            success=True,
+                            message_id=success_message,
+                            cost=1.0,  # Each SMS costs 1 credit
+                            balance_remaining=0  # Will be updated from balance API
+                        )
+                    else:
+                        return SMSResult(
+                            success=False,
+                            error=error_message or f"API Error Code: {response_code}"
+                        )
+                except ValueError:
                     return SMSResult(
                         success=False,
-                        error=data.get('message', 'Unknown error')
+                        error='Invalid API response format'
                     )
             else:
                 return SMSResult(
