@@ -38,6 +38,14 @@ BASE_SMS_TEMPLATES = [
         'default_message': '{student_name} পেয়েছে {marks}/{total} ({subject}) {date}',
         'variables': ['student_name', 'subject', 'marks', 'total', 'date'],
         'editable': False  # Hardcoded short template
+    },
+    {
+        'id': 'fee_reminder',
+        'name': 'Fee Reminder',
+        'category': 'fee',
+        'default_message': '{student_name} এর ফি {amount}৳ বকেয়া। শেষ তারিখ {due_date}',
+        'variables': ['student_name', 'amount', 'due_date'],
+        'editable': False  # Hardcoded short template
     }
 ]
 
