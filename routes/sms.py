@@ -19,25 +19,25 @@ BASE_SMS_TEMPLATES = [
         'id': 'attendance_present',
         'name': 'Attendance - Present',
         'category': 'attendance',
-        'default_message': 'Dear Parent, {student_name} was PRESENT today in {batch_name} on {date}. Keep up the good work!',
-        'variables': ['student_name', 'batch_name', 'date'],
-        'editable': True
+        'default_message': '{student_name} উপস্থিত ({batch_name})',
+        'variables': ['student_name', 'batch_name'],
+        'editable': False  # Hardcoded short template
     },
     {
         'id': 'attendance_absent',
         'name': 'Attendance - Absent',
         'category': 'attendance',
-        'default_message': 'Dear Parent, {student_name} was ABSENT today in {batch_name} on {date}. Please ensure regular attendance.',
+        'default_message': '{student_name} অনুপস্থিত {date} ({batch_name})',
         'variables': ['student_name', 'batch_name', 'date'],
-        'editable': True
+        'editable': False  # Hardcoded short template
     },
     {
         'id': 'exam_result',
         'name': 'Exam Result',
         'category': 'exam',
-        'default_message': 'Dear Parent, {student_name} scored {marks}/{total} marks in {subject} exam on {date}. Total marks: {marks}/{total}',
+        'default_message': '{student_name} পেয়েছে {marks}/{total} ({subject}) {date}',
         'variables': ['student_name', 'subject', 'marks', 'total', 'date'],
-        'editable': True
+        'editable': False  # Hardcoded short template
     }
 ]
 

@@ -167,21 +167,22 @@ def bulk_mark_attendance():
                 student = update['student']
                 status = update['status']
                 
-                # Prepare SMS message using templates
+                # Prepare SMS message using short templates
                 from flask import session
                 custom_templates = session.get('custom_templates', {})
                 
                 # Get the appropriate template based on attendance status
+                # Using new short Bangla templates to minimize SMS cost
                 if status.lower() == 'present':
-                    template = custom_templates.get('attendance_present', 'Dear Parent, {student_name} was PRESENT today in {batch_name} on {date}. Keep up the good work!')
+                    template = custom_templates.get('attendance_present', '{student_name} উপস্থিত ({batch_name})')
                 else:  # absent
-                    template = custom_templates.get('attendance_absent', 'Dear Parent, {student_name} was ABSENT today in {batch_name} on {date}. Please ensure regular attendance.')
+                    template = custom_templates.get('attendance_absent', '{student_name} অনুপস্থিত {date} ({batch_name})')
                 
                 # Replace template variables with actual data
                 message = template.format(
                     student_name=student.full_name,
                     batch_name=batch.name,
-                    date=attendance_date.strftime('%d/%m/%Y')
+                    date=attendance_date.strftime('%d/%m')
                 )
                 
                 # Collect phone numbers to send SMS
@@ -340,19 +341,19 @@ def bulk_mark_attendance_send_absent_sms():
             from models import SmsLog, SmsStatus
             
             for student in absent_students:
-                # Get absent message template
+                # Get absent message template (short Bangla version)
                 from flask import session
                 custom_templates = session.get('custom_templates', {})
                 template = custom_templates.get(
                     'attendance_absent', 
-                    'Dear Parent, {student_name} was ABSENT today in {batch_name} on {date}. Please ensure regular attendance.'
+                    '{student_name} অনুপস্থিত {date} ({batch_name})'
                 )
                 
                 # Replace template variables with actual data
                 message = template.format(
                     student_name=student.full_name,
                     batch_name=batch.name,
-                    date=attendance_date.strftime('%d/%m/%Y')
+                    date=attendance_date.strftime('%d/%m')
                 )
                 
                 # Collect phone numbers to send SMS

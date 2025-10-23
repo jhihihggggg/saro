@@ -1731,12 +1731,13 @@ def get_sms_template(template_type):
         return get_default_template(template_type)
 
 def get_default_template(template_type):
-    """Get default SMS templates"""
+    """Get default short SMS templates (Bangla, optimized for 1 SMS)"""
     templates = {
-        'exam_result': "Dear Parent, {student_name} scored {marks}/{total} marks in {subject} exam on {date}. Grade: {grade}",
-        'attendance': "Dear Parent, {student_name} was {status} in class on {date}.",
-        'fee_reminder': "Dear Parent, monthly fee for {student_name} is due. Amount: {amount} BDT. Please pay by {due_date}.",
-        'general': "Dear Parent, this is an update regarding {student_name}."
+        'exam_result': "{student_name} পেয়েছে {marks}/{total} ({subject}) {date}",
+        'attendance_present': "{student_name} উপস্থিত ({batch_name})",
+        'attendance_absent': "{student_name} অনুপস্থিত {date} ({batch_name})",
+        'fee_reminder': "{student_name} এর ফি {amount}৳ বকেয়া। শেষ তারিখ {due_date}",
+        'general': "{student_name}: {message}"
     }
     return templates.get(template_type, templates['general'])
 
@@ -1764,7 +1765,7 @@ def get_target_phone(student):
 def generate_exam_result_message(template, notification):
     """Generate SMS message using template and notification data"""
     try:
-        # Prepare template variables
+        # Prepare template variables (short format with DD/MM date)
         variables = {
             'student_name': notification['student'].first_name,
             'full_name': notification['student'].full_name,
@@ -1774,17 +1775,13 @@ def generate_exam_result_message(template, notification):
             'percentage': notification['percentage'],
             'grade': notification['grade'],
             'exam_title': notification['exam_title'],
-            'date': datetime.now().strftime('%d/%m/%Y')
+            'date': datetime.now().strftime('%d/%m')  # Short date format DD/MM
         }
         
-        # Format the template
+        # Format the template (short Bangla: "{student_name} পেয়েছে {marks}/{total} ({subject}) {date}")
         message = template.format(**variables)
         
-        # Ensure message is not too long (SMS limit is usually 160 characters)
-        if len(message) > 160:
-            # Use a shorter fallback template without percentage
-            message = f"{variables['student_name']} scored {variables['marks']}/{variables['total']} in {variables['subject']} ({variables['grade']})"
-        
+        # New short template fits in 1 SMS (100 chars for mixed Bangla/English)
         return message
         
     except Exception as e:
