@@ -11,7 +11,6 @@ from datetime import datetime, date, timedelta
 import requests
 import os
 import re
-from services.services.sms_service import SMSService
 
 sms_bp = Blueprint('sms', __name__)
 
@@ -20,33 +19,25 @@ BASE_SMS_TEMPLATES = [
         'id': 'attendance_present',
         'name': 'Attendance - Present',
         'category': 'attendance',
-        'default_message': '{student_name} উপস্থিত ({batch_name})',
-        'variables': ['student_name', 'batch_name'],
-        'editable': False  # Hardcoded short template
+        'default_message': 'Dear Parent, {student_name} was PRESENT today in {batch_name} on {date}. Keep up the good work!',
+        'variables': ['student_name', 'batch_name', 'date'],
+        'editable': True
     },
     {
         'id': 'attendance_absent',
         'name': 'Attendance - Absent',
         'category': 'attendance',
-        'default_message': '{student_name} অনুপস্থিত {date} ({batch_name})',
+        'default_message': 'Dear Parent, {student_name} was ABSENT today in {batch_name} on {date}. Please ensure regular attendance.',
         'variables': ['student_name', 'batch_name', 'date'],
-        'editable': False  # Hardcoded short template
+        'editable': True
     },
     {
         'id': 'exam_result',
         'name': 'Exam Result',
         'category': 'exam',
-        'default_message': '{student_name} পেয়েছে {marks}/{total} ({subject}) {date}',
+        'default_message': 'Dear Parent, {student_name} scored {marks}/{total} marks in {subject} exam on {date}. Total marks: {marks}/{total}',
         'variables': ['student_name', 'subject', 'marks', 'total', 'date'],
-        'editable': False  # Hardcoded short template
-    },
-    {
-        'id': 'fee_reminder',
-        'name': 'Fee Reminder',
-        'category': 'fee',
-        'default_message': '{student_name} এর ফি {amount}৳ বকেয়া। শেষ তারিখ {due_date}',
-        'variables': ['student_name', 'amount', 'due_date'],
-        'editable': False  # Hardcoded short template
+        'editable': True
     }
 ]
 
@@ -90,31 +81,6 @@ def get_all_templates():
         build_template_payload(template_def, custom_templates.get(template_def['id']))
         for template_def in BASE_SMS_TEMPLATES
     ]
-
-def get_real_sms_balance():
-    """Get actual SMS balance from API"""
-    try:
-        # Use direct API call with hardcoded key
-        api_key = 'gsOKLO6XtKsANCvgPHNt'
-        import requests
-        
-        params = {'api_key': api_key}
-        response = requests.get(
-            'http://bulksmsbd.net/api/getBalanceApi',
-            params=params,
-            timeout=10
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            balance = int(data.get('balance', 0)) if data.get('balance') else 0
-            return balance
-        return 0
-    except Exception as e:
-        print(f"Error getting SMS balance: {e}")
-        import traceback
-        traceback.print_exc()
-        return 0
 
 def count_sms_characters(text):
     """
@@ -277,12 +243,7 @@ def send_sms():
         if not phone_numbers:
             return error_response('No valid phone numbers found', 400)
         
-        # Check SMS balance from API
-        current_balance = get_real_sms_balance()
-        if current_balance < len(phone_numbers):
-            return error_response(f'Insufficient SMS balance. Required: {len(phone_numbers)}, Available: {current_balance}', 400)
-        
-        # Send SMS to each recipient
+        # Send SMS to each recipient (no balance check - API handles it)
         sent_count = 0
         failed_count = 0
         sms_logs = []
@@ -395,12 +356,7 @@ def send_batch_sms():
         if not phone_numbers:
             return error_response('No valid phone numbers found in selected batches', 400)
         
-        # Check SMS balance from API
-        current_balance = get_real_sms_balance()
-        if current_balance < len(phone_numbers):
-            return error_response(f'Insufficient SMS balance. Required: {len(phone_numbers)}, Available: {current_balance}', 400)
-        
-        # Send SMS to each recipient
+        # Send SMS to each recipient (no balance check - API handles it)
         sent_count = 0
         failed_count = 0
         
@@ -963,11 +919,7 @@ def send_bulk_sms():
         if not valid_recipients:
             return error_response('No recipients have valid phone numbers', 400)
 
-        total_sms_needed = len(valid_recipients)
-        current_balance = get_real_sms_balance()
-        if current_balance < total_sms_needed:
-            return error_response(f'Insufficient SMS balance. Need {total_sms_needed}, have {current_balance}', 400)
-
+        # Send SMS to each recipient (no balance check - API handles it)
         sent_count = 0
         failed_count = 0
         failed_recipients = []
@@ -1128,11 +1080,7 @@ def send_bulk_sms_noauth():
         if not valid_recipients:
             return error_response('No recipients have valid phone numbers', 400)
 
-        total_sms_needed = len(valid_recipients)
-        current_balance = get_real_sms_balance()
-        if current_balance < total_sms_needed:
-            return error_response(f'Insufficient SMS balance. Need {total_sms_needed}, have {current_balance}', 400)
-
+        # Send SMS to each recipient (no balance check - API handles it)
         sent_count = 0
         failed_count = 0
 

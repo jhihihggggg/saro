@@ -8,34 +8,8 @@ from utils.response import success_response, error_response
 from datetime import datetime, timedelta
 from sqlalchemy import func, and_, extract
 import calendar
-from services.services.sms_service import SMSService
 
 attendance_bp = Blueprint('attendance', __name__)
-
-def get_real_sms_balance():
-    """Get actual SMS balance from API"""
-    try:
-        # Use direct API call with hardcoded key
-        api_key = 'gsOKLO6XtKsANCvgPHNt'
-        import requests
-        
-        params = {'api_key': api_key}
-        response = requests.get(
-            'http://bulksmsbd.net/api/getBalanceApi',
-            params=params,
-            timeout=10
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            balance = int(data.get('balance', 0)) if data.get('balance') else 0
-            return balance
-        return 0
-    except Exception as e:
-        print(f"Error getting SMS balance: {e}")
-        import traceback
-        traceback.print_exc()
-        return 0
 
 @attendance_bp.route('', methods=['GET'])
 @login_required
@@ -181,12 +155,7 @@ def bulk_mark_attendance():
         sms_sent = 0
         sms_sent_numbers = []
         if send_sms and attendance_updates:
-            # Check actual SMS balance from API
-            current_balance = get_real_sms_balance()
-            if current_balance <= 0:
-                return error_response('Insufficient SMS balance. Please contact admin to add credits.', 400)
-            
-            # Import SMS sending function
+            # Import SMS sending function (no balance check - API handles it)
             from routes.sms import send_sms_via_api
             from models import SmsLog, SmsStatus
             
@@ -194,22 +163,21 @@ def bulk_mark_attendance():
                 student = update['student']
                 status = update['status']
                 
-                # Prepare SMS message using short templates
+                # Prepare SMS message using templates
                 from flask import session
                 custom_templates = session.get('custom_templates', {})
                 
                 # Get the appropriate template based on attendance status
-                # Using new short Bangla templates to minimize SMS cost
                 if status.lower() == 'present':
-                    template = custom_templates.get('attendance_present', '{student_name} উপস্থিত ({batch_name})')
+                    template = custom_templates.get('attendance_present', 'Dear Parent, {student_name} was PRESENT today in {batch_name} on {date}. Keep up the good work!')
                 else:  # absent
-                    template = custom_templates.get('attendance_absent', '{student_name} অনুপস্থিত {date} ({batch_name})')
+                    template = custom_templates.get('attendance_absent', 'Dear Parent, {student_name} was ABSENT today in {batch_name} on {date}. Please ensure regular attendance.')
                 
                 # Replace template variables with actual data
                 message = template.format(
                     student_name=student.full_name,
                     batch_name=batch.name,
-                    date=attendance_date.strftime('%d/%m')
+                    date=attendance_date.strftime('%d/%m/%Y')
                 )
                 
                 # Collect phone numbers to send SMS
@@ -358,30 +326,25 @@ def bulk_mark_attendance_send_absent_sms():
         sms_failed = 0
         
         if absent_students:
-            # Check actual SMS balance from API
-            required_sms = len(absent_students) * 2  # Assuming 2 SMS per student (guardian + student)
-            current_balance = get_real_sms_balance()
-            if current_balance <= 0:
-                return error_response('Insufficient SMS balance. Please contact admin to add credits.', 400)
-            
-            # Import SMS sending function
+            # Check teacher's SMS balance
+            # Import SMS sending function (no balance check - API handles it)
             from routes.sms import send_sms_via_api
             from models import SmsLog, SmsStatus
             
             for student in absent_students:
-                # Get absent message template (short Bangla version)
+                # Get absent message template
                 from flask import session
                 custom_templates = session.get('custom_templates', {})
                 template = custom_templates.get(
                     'attendance_absent', 
-                    '{student_name} অনুপস্থিত {date} ({batch_name})'
+                    'Dear Parent, {student_name} was ABSENT today in {batch_name} on {date}. Please ensure regular attendance.'
                 )
                 
                 # Replace template variables with actual data
                 message = template.format(
                     student_name=student.full_name,
                     batch_name=batch.name,
-                    date=attendance_date.strftime('%d/%m')
+                    date=attendance_date.strftime('%d/%m/%Y')
                 )
                 
                 # Collect phone numbers to send SMS
