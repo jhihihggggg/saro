@@ -461,6 +461,7 @@ def get_monthly_attendance():
         students = User.query.join(User.batches).filter(
             User.role == UserRole.STUDENT,
             User.is_active == True,
+            User.is_archived == False,
             Batch.id == batch_id
         ).order_by(User.first_name, User.last_name).all()
         
