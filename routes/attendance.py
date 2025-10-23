@@ -8,8 +8,21 @@ from utils.response import success_response, error_response
 from datetime import datetime, timedelta
 from sqlalchemy import func, and_, extract
 import calendar
+from services.services.sms_service import SMSService
 
 attendance_bp = Blueprint('attendance', __name__)
+
+def get_real_sms_balance():
+    """Get actual SMS balance from API"""
+    try:
+        sms_service = SMSService()
+        result = sms_service.check_balance()
+        if result.get('success'):
+            return result.get('balance', 0)
+        return 0
+    except Exception as e:
+        print(f"Error getting SMS balance: {e}")
+        return 0
 
 @attendance_bp.route('', methods=['GET'])
 @login_required
@@ -155,8 +168,9 @@ def bulk_mark_attendance():
         sms_sent = 0
         sms_sent_numbers = []
         if send_sms and attendance_updates:
-            # Check teacher's SMS balance
-            if current_user.sms_count is None or current_user.sms_count <= 0:
+            # Check actual SMS balance from API
+            current_balance = get_real_sms_balance()
+            if current_balance <= 0:
                 return error_response('Insufficient SMS balance. Please contact admin to add credits.', 400)
             
             # Import SMS sending function
@@ -331,9 +345,10 @@ def bulk_mark_attendance_send_absent_sms():
         sms_failed = 0
         
         if absent_students:
-            # Check teacher's SMS balance
+            # Check actual SMS balance from API
             required_sms = len(absent_students) * 2  # Assuming 2 SMS per student (guardian + student)
-            if current_user.sms_count is None or current_user.sms_count <= 0:
+            current_balance = get_real_sms_balance()
+            if current_balance <= 0:
                 return error_response('Insufficient SMS balance. Please contact admin to add credits.', 400)
             
             # Import SMS sending function

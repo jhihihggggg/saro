@@ -11,6 +11,7 @@ from datetime import datetime, date, timedelta
 import requests
 import os
 import re
+from services.services.sms_service import SMSService
 
 sms_bp = Blueprint('sms', __name__)
 
@@ -89,6 +90,18 @@ def get_all_templates():
         build_template_payload(template_def, custom_templates.get(template_def['id']))
         for template_def in BASE_SMS_TEMPLATES
     ]
+
+def get_real_sms_balance():
+    """Get actual SMS balance from API"""
+    try:
+        sms_service = SMSService()
+        result = sms_service.check_balance()
+        if result.get('success'):
+            return result.get('balance', 0)
+        return 0
+    except Exception as e:
+        print(f"Error getting SMS balance: {e}")
+        return 0
 
 def count_sms_characters(text):
     """
@@ -251,9 +264,10 @@ def send_sms():
         if not phone_numbers:
             return error_response('No valid phone numbers found', 400)
         
-        # Check SMS quota for current user
-        if current_user.sms_count < len(phone_numbers):
-            return error_response(f'Insufficient SMS balance. Required: {len(phone_numbers)}, Available: {current_user.sms_count}', 400)
+        # Check SMS balance from API
+        current_balance = get_real_sms_balance()
+        if current_balance < len(phone_numbers):
+            return error_response(f'Insufficient SMS balance. Required: {len(phone_numbers)}, Available: {current_balance}', 400)
         
         # Send SMS to each recipient
         sent_count = 0
@@ -368,9 +382,10 @@ def send_batch_sms():
         if not phone_numbers:
             return error_response('No valid phone numbers found in selected batches', 400)
         
-        # Check SMS quota
-        if current_user.sms_count < len(phone_numbers):
-            return error_response(f'Insufficient SMS balance. Required: {len(phone_numbers)}, Available: {current_user.sms_count}', 400)
+        # Check SMS balance from API
+        current_balance = get_real_sms_balance()
+        if current_balance < len(phone_numbers):
+            return error_response(f'Insufficient SMS balance. Required: {len(phone_numbers)}, Available: {current_balance}', 400)
         
         # Send SMS to each recipient
         sent_count = 0
@@ -936,8 +951,9 @@ def send_bulk_sms():
             return error_response('No recipients have valid phone numbers', 400)
 
         total_sms_needed = len(valid_recipients)
-        if (current_user.sms_count or 0) < total_sms_needed:
-            return error_response(f'Insufficient SMS balance. Need {total_sms_needed}, have {current_user.sms_count or 0}', 400)
+        current_balance = get_real_sms_balance()
+        if current_balance < total_sms_needed:
+            return error_response(f'Insufficient SMS balance. Need {total_sms_needed}, have {current_balance}', 400)
 
         sent_count = 0
         failed_count = 0
@@ -1100,8 +1116,9 @@ def send_bulk_sms_noauth():
             return error_response('No recipients have valid phone numbers', 400)
 
         total_sms_needed = len(valid_recipients)
-        if (current_user.sms_count or 0) < total_sms_needed:
-            return error_response(f'Insufficient SMS balance. Need {total_sms_needed}, have {current_user.sms_count or 0}', 400)
+        current_balance = get_real_sms_balance()
+        if current_balance < total_sms_needed:
+            return error_response(f'Insufficient SMS balance. Need {total_sms_needed}, have {current_balance}', 400)
 
         sent_count = 0
         failed_count = 0
