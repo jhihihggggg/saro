@@ -27,40 +27,76 @@ def get_templates():
         # Get session templates
         session_templates = session.get('custom_templates', {})
         
-        templates = {
+        # Hardcoded short templates (not editable)
+        hardcoded_templates = {
             'exam_result': {
                 'name': 'Exam Result',
-                'description': 'Template for exam result notifications',
-                'variables': ['student_name', 'subject', 'marks', 'total', 'grade', 'date'],
-                'default': "Dear Parent, {student_name} scored {marks}/{total} marks in {subject} exam on {date}. Grade: {grade}",
-                'current': session_templates.get('exam_result', ''),
-                'saved': None
+                'description': 'Short template for exam results',
+                'variables': ['student_name', 'marks', 'total', 'subject', 'date'],
+                'template': "{student_name} পেয়েছে {marks}/{total} ({subject}) {date}",
+                'editable': False,
+                'max_sms': 1
             },
-            'attendance': {
-                'name': 'Attendance',
-                'description': 'Template for attendance notifications',
-                'variables': ['student_name', 'status', 'date'],
-                'default': "Dear Parent, {student_name} was {status} in class on {date}.",
-                'current': session_templates.get('attendance', ''),
-                'saved': None
+            'attendance_present': {
+                'name': 'Attendance Present',
+                'description': 'Present notification',
+                'variables': ['student_name', 'batch_name'],
+                'template': "{student_name} উপস্থিত ({batch_name})",
+                'editable': False,
+                'max_sms': 1
+            },
+            'attendance_absent': {
+                'name': 'Attendance Absent',
+                'description': 'Absent notification',
+                'variables': ['student_name', 'date', 'batch_name'],
+                'template': "{student_name} অনুপস্থিত {date} ({batch_name})",
+                'editable': False,
+                'max_sms': 1
             },
             'fee_reminder': {
                 'name': 'Fee Reminder',
-                'description': 'Template for fee reminder notifications',
+                'description': 'Fee payment reminder',
                 'variables': ['student_name', 'amount', 'due_date'],
-                'default': "Dear Parent, monthly fee for {student_name} is due. Amount: {amount} BDT. Please pay by {due_date}.",
-                'current': session_templates.get('fee_reminder', ''),
-                'saved': None
+                'template': "{student_name} এর ফি {amount}৳ বকেয়া। শেষ তারিখ {due_date}",
+                'editable': False,
+                'max_sms': 1
             }
         }
         
-        # Update with saved templates from database
+        # Custom templates (user can edit these)
+        templates = {
+            'custom_exam': {
+                'name': 'Custom Exam Message',
+                'description': 'Customizable exam message',
+                'variables': ['student_name', 'subject', 'marks', 'total', 'date'],
+                'default': "{student_name} scored {marks}/{total} in {subject} on {date}",
+                'current': session_templates.get('custom_exam', ''),
+                'saved': None,
+                'editable': True,
+                'max_sms': 2
+            },
+            'custom_general': {
+                'name': 'Custom General Message',
+                'description': 'General purpose message',
+                'variables': ['student_name', 'message', 'date'],
+                'default': "{student_name}: {message} ({date})",
+                'current': session_templates.get('custom_general', ''),
+                'saved': None,
+                'editable': True,
+                'max_sms': 2
+            }
+        }
+        
+        # Merge hardcoded and custom templates
+        all_templates = {**hardcoded_templates, **templates}
+        
+        # Update with saved templates from database (only for editable ones)
         for db_template in db_templates:
             template_type = db_template.key.replace('sms_template_', '')
-            if template_type in templates:
-                templates[template_type]['saved'] = db_template.value.get('message', '') if db_template.value else ''
+            if template_type in all_templates and all_templates[template_type].get('editable', True):
+                all_templates[template_type]['saved'] = db_template.value.get('message', '') if db_template.value else ''
         
-        return success_response('Templates retrieved successfully', templates)
+        return success_response('Templates retrieved successfully', all_templates)
         
     except Exception as e:
         logger.error(f"Error getting SMS templates: {e}")
@@ -70,8 +106,10 @@ def get_templates():
 @login_required
 @require_role('TEACHER', 'SUPER_USER')
 def update_template(template_type):
-    """Update SMS template (session-based for live editing)"""
+    """Update SMS template (only for editable templates)"""
     try:
+        from services.sms_service import SMSService
+        
         data = request.get_json()
         
         if not data or 'message' not in data:
@@ -80,6 +118,22 @@ def update_template(template_type):
         message = data['message'].strip()
         if not message:
             return error_response('Template message cannot be empty', 400)
+        
+        # Check if template is editable
+        # Get template info (simplified check)
+        if template_type.startswith('attendance_') or template_type == 'exam_result' or template_type == 'fee_reminder':
+            return error_response('This template is hardcoded and cannot be edited', 403)
+        
+        max_sms = data.get('max_sms', 2)
+        
+        # Calculate SMS count
+        sms_service = SMSService()
+        sms_stats = sms_service.calculate_sms_count(message)
+        
+        # Auto-truncate if exceeds max_sms
+        if sms_stats['sms_count'] > max_sms:
+            message = sms_service.truncate_message(message, max_sms)
+            sms_stats = sms_service.calculate_sms_count(message)
         
         # Store in session for immediate use
         if 'custom_templates' not in session:
@@ -90,7 +144,9 @@ def update_template(template_type):
         
         return success_response('Template updated successfully', {
             'template_type': template_type,
-            'message': message
+            'message': message,
+            'sms_stats': sms_stats,
+            'truncated': sms_stats['sms_count'] > max_sms
         })
         
     except Exception as e:
@@ -156,14 +212,17 @@ def reset_template(template_type):
         if 'custom_templates' in session and template_type in session['custom_templates']:
             del session['custom_templates'][template_type]
         
-        # Get default template
+        # Get default short templates (hardcoded, not editable)
         default_templates = {
-            'exam_result': "Dear Parent, {student_name} scored {marks}/{total} marks in {subject} exam on {date}. Grade: {grade}",
-            'attendance': "Dear Parent, {student_name} was {status} in class on {date}.",
-            'fee_reminder': "Dear Parent, monthly fee for {student_name} is due. Amount: {amount} BDT. Please pay by {due_date}."
+            'exam_result': "{student_name} পেয়েছে {marks}/{total} ({subject}) {date}",
+            'attendance_present': "{student_name} উপস্থিত ({batch_name})",
+            'attendance_absent': "{student_name} অনুপস্থিত {date} ({batch_name})",
+            'fee_reminder': "{student_name} এর ফি {amount}৳ বকেয়া। শেষ তারিখ {due_date}",
+            'custom_exam': "{student_name} scored {marks}/{total} in {subject} on {date}",
+            'custom_general': "{student_name}: {message} ({date})"
         }
         
-        default_message = default_templates.get(template_type, "Default template not found")
+        default_message = default_templates.get(template_type, "Template not found")
         
         return success_response('Template reset to default', {
             'template_type': template_type,
@@ -174,12 +233,50 @@ def reset_template(template_type):
         logger.error(f"Error resetting SMS template: {e}")
         return error_response('Failed to reset template', 500)
 
+@sms_templates_bp.route('/validate-message', methods=['POST'])
+@login_required
+@require_role('TEACHER', 'SUPER_USER')
+def validate_message():
+    """Validate SMS message character count"""
+    try:
+        from services.sms_service import SMSService
+        
+        data = request.get_json()
+        
+        if not data or 'message' not in data:
+            return error_response('Message is required', 400)
+        
+        message = data['message']
+        
+        # Calculate SMS count
+        sms_service = SMSService()
+        sms_stats = sms_service.calculate_sms_count(message)
+        
+        # For UI, we want to show a simpler format
+        return success_response('Message validated', {
+            'char_count': sms_stats.get('char_count', 0),
+            'weighted_count': sms_stats.get('weighted_count', sms_stats.get('char_count', 0)),
+            'sms_count': sms_stats.get('sms_count', 1),
+            'max_characters': 100,  # Mixed Bangla/English limit
+            'remaining': 100 - sms_stats.get('weighted_count', sms_stats.get('char_count', 0)),
+            'is_valid': sms_stats.get('sms_count', 1) <= 1,
+            'type': sms_stats.get('type', 'unknown'),
+            'bangla_chars': sms_stats.get('bangla_chars', 0),
+            'english_chars': sms_stats.get('english_chars', 0)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error validating message: {e}")
+        return error_response('Failed to validate message', 500)
+
 @sms_templates_bp.route('/preview', methods=['POST'])
 @login_required
 @require_role('TEACHER', 'SUPER_USER')
 def preview_template():
-    """Preview SMS template with sample data"""
+    """Preview SMS template with accurate SMS count calculation"""
     try:
+        from services.sms_service import SMSService
+        
         data = request.get_json()
         
         if not data or 'template' not in data or 'template_type' not in data:
@@ -195,19 +292,33 @@ def preview_template():
                 'subject': 'গণিত',
                 'marks': 85,
                 'total': 100,
-                'grade': 'A',
-                'percentage': 85.0,
-                'date': datetime.now().strftime('%d/%m/%Y')
+                'date': '২৩/১০/২০২৫'
             },
-            'attendance': {
+            'attendance_present': {
                 'student_name': 'ফাতিমা খান',
-                'status': 'উপস্থিত',
-                'date': datetime.now().strftime('%d/%m/%Y')
+                'batch_name': 'HSC-২৫'
+            },
+            'attendance_absent': {
+                'student_name': 'রহিম উদ্দিন',
+                'date': '২৩/১০',
+                'batch_name': 'SSC-২৬'
             },
             'fee_reminder': {
-                'student_name': 'রহিম উদ্দিন',
-                'amount': 2500,
-                'due_date': '৩১/১২/২০২৪'
+                'student_name': 'সাকিব হোসেন',
+                'amount': '২৫০০',
+                'due_date': '৩০/১০'
+            },
+            'custom_exam': {
+                'student_name': 'আয়েশা',
+                'subject': 'পদার্থবিজ্ঞান',
+                'marks': 92,
+                'total': 100,
+                'date': '২৩/১০/২০২৫'
+            },
+            'custom_general': {
+                'student_name': 'করিম',
+                'message': 'আগামীকাল ক্লাস হবে',
+                'date': '২৪/১০'
             }
         }
         
@@ -216,10 +327,13 @@ def preview_template():
             preview_data = sample_data.get(template_type, {})
             preview_message = template.format(**preview_data)
             
+            # Calculate accurate SMS count
+            sms_service = SMSService()
+            sms_stats = sms_service.calculate_sms_count(preview_message)
+            
             return success_response('Preview generated successfully', {
                 'preview': preview_message,
-                'length': len(preview_message),
-                'sms_count': 1 if len(preview_message) <= 160 else 2,
+                'sms_stats': sms_stats,
                 'sample_data': preview_data
             })
             

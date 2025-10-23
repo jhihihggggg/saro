@@ -412,6 +412,96 @@ def send_bulk_attendance_sms(attendance_data, batch_name, date, teacher_name):
         except UnicodeEncodeError:
             return True
     
+    def calculate_sms_count(self, text: str) -> Dict[str, Any]:
+        """
+        Calculate SMS count considering:
+        - Pure English: 160 chars per SMS
+        - Mixed Bangla/English: 100 chars per SMS (Unicode)
+        - Pure Bangla: 70 chars per SMS (each Bangla char = ~2.2 English chars)
+        """
+        if not text:
+            return {'sms_count': 0, 'char_count': 0, 'type': 'empty'}
+        
+        char_count = len(text)
+        is_unicode = self.contains_unicode(text)
+        
+        # Check if text has Bangla characters
+        has_bangla = any('\u0980' <= char <= '\u09FF' for char in text)
+        
+        if not is_unicode:
+            # Pure English: 160 chars per SMS
+            sms_count = 1 if char_count <= 160 else (char_count // 153) + (1 if char_count % 153 else 0)
+            return {
+                'sms_count': sms_count,
+                'char_count': char_count,
+                'type': 'english',
+                'limit_per_sms': 160 if sms_count == 1 else 153,
+                'chars_used': char_count,
+                'chars_remaining': (160 if sms_count == 1 else 153 * sms_count) - char_count
+            }
+        
+        if has_bangla:
+            # Mixed or Pure Bangla: 100 chars per SMS (safer for mixed content)
+            # Count Bangla chars with 2.2x weight
+            bangla_count = sum(1 for char in text if '\u0980' <= char <= '\u09FF')
+            english_count = char_count - bangla_count
+            weighted_count = int(bangla_count * 2.2 + english_count)
+            
+            # Use 100 char limit for mixed content
+            sms_count = 1 if weighted_count <= 100 else (weighted_count // 100) + (1 if weighted_count % 100 else 0)
+            
+            return {
+                'sms_count': sms_count,
+                'char_count': char_count,
+                'weighted_count': weighted_count,
+                'bangla_chars': bangla_count,
+                'english_chars': english_count,
+                'type': 'mixed' if english_count > 0 else 'bangla',
+                'limit_per_sms': 100,
+                'chars_used': weighted_count,
+                'chars_remaining': (100 * sms_count) - weighted_count
+            }
+        
+        # Unicode but not Bangla (other Unicode chars)
+        sms_count = 1 if char_count <= 70 else (char_count // 67) + (1 if char_count % 67 else 0)
+        return {
+            'sms_count': sms_count,
+            'char_count': char_count,
+            'type': 'unicode',
+            'limit_per_sms': 70 if sms_count == 1 else 67,
+            'chars_used': char_count,
+            'chars_remaining': (70 if sms_count == 1 else 67 * sms_count) - char_count
+        }
+    
+    def truncate_message(self, text: str, max_sms: int = 1) -> str:
+        """
+        Truncate message to fit within max_sms count
+        """
+        if not text:
+            return text
+        
+        is_unicode = self.contains_unicode(text)
+        has_bangla = any('\u0980' <= char <= '\u09FF' for char in text)
+        
+        if has_bangla or is_unicode:
+            # Mixed/Bangla: 100 chars per SMS
+            max_chars = max_sms * 100
+            
+            # Calculate weighted length
+            truncated = text
+            while len(truncated) > 0:
+                stats = self.calculate_sms_count(truncated)
+                if stats['sms_count'] <= max_sms:
+                    return truncated
+                # Remove last 10 chars and try again
+                truncated = truncated[:-10].strip()
+            
+            return text[:max_chars]
+        else:
+            # English: 160 chars for first SMS, 153 for subsequent
+            max_chars = 160 if max_sms == 1 else (153 * max_sms)
+            return text[:max_chars]
+    
     def get_templates(self, category: Optional[str] = None) -> List[SmsTemplate]:
         """Get SMS templates"""
         query = SmsTemplate.query.filter_by(is_active=True)
