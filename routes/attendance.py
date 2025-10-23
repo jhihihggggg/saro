@@ -15,13 +15,26 @@ attendance_bp = Blueprint('attendance', __name__)
 def get_real_sms_balance():
     """Get actual SMS balance from API"""
     try:
-        sms_service = SMSService()
-        result = sms_service.check_balance()
-        if result.get('success'):
-            return result.get('balance', 0)
+        # Use direct API call with hardcoded key
+        api_key = 'gsOKLO6XtKsANCvgPHNt'
+        import requests
+        
+        params = {'api_key': api_key}
+        response = requests.get(
+            'http://bulksmsbd.net/api/getBalanceApi',
+            params=params,
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            balance = int(data.get('balance', 0)) if data.get('balance') else 0
+            return balance
         return 0
     except Exception as e:
         print(f"Error getting SMS balance: {e}")
+        import traceback
+        traceback.print_exc()
         return 0
 
 @attendance_bp.route('', methods=['GET'])
