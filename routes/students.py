@@ -234,7 +234,7 @@ def create_student():
             guardian_name=data.get('guardianName', '').strip() if data.get('guardianName') else None,
             mother_name=data.get('motherName', '').strip() if data.get('motherName') else None,
             emergency_contact=data.get('emergencyContact', '').strip() if data.get('emergencyContact') else None,
-            admission_date=datetime.strptime(data['admissionDate'], '%Y-%m-%d').date() if data.get('admissionDate') and data['admissionDate'].strip() else None,
+            admission_date=datetime.strptime(str(data['admissionDate']).strip(), '%Y-%m-%d').date() if data.get('admissionDate') and str(data['admissionDate']).strip() else None,
             is_active=data.get('isActive', True)
         )
         
@@ -287,6 +287,10 @@ def create_student():
         
     except Exception as e:
         db.session.rollback()
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"ERROR creating student: {str(e)}")
+        print(f"Full traceback: {error_details}")
         return error_response(f'Failed to create student: {str(e)}', 500)
 
 @students_bp.route('/<int:student_id>', methods=['PUT'])
