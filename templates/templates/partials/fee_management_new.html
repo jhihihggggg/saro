@@ -98,7 +98,7 @@
                                     :class="index % 2 === 0 ? 'bg-white' : 'bg-gray-50'">
                                     <div>
                                         <div x-text="student.student_name"></div>
-                                        <div class="text-xs text-gray-500" x-text="'Roll: ' + (student.roll_number || 'N/A')"></div>
+                                        <div class="text-xs text-gray-500" x-text="student.phone"></div>
                                     </div>
                                 </td>
                                 <template x-for="month in 12" :key="month">

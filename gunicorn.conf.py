@@ -12,7 +12,7 @@ backlog = 2048
 workers = multiprocessing.cpu_count() * 2 + 1
 worker_class = "sync"
 worker_connections = 1000
-timeout = 30
+timeout = 300  # Increased to 5 minutes for long-running operations like marks saving
 keepalive = 2
 
 # Restart workers after this many requests, to help prevent memory leaks
