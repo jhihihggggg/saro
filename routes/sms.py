@@ -586,9 +586,29 @@ def validate_sms_message():
 @login_required
 @require_role(UserRole.TEACHER, UserRole.SUPER_USER)
 def get_sms_balance():
-    """Get current user's SMS balance"""
+    """Get current user's SMS balance from BulkSMSBD API"""
     try:
         current_user = get_current_user()
+
+        # Get real balance from API
+        api_key = 'gsOKLO6XtKsANCvgPHNt'
+        import requests
+        
+        try:
+            params = {'api_key': api_key}
+            response = requests.get(
+                'http://bulksmsbd.net/api/getBalanceApi',
+                params=params,
+                timeout=10
+            )
+            
+            balance = 0
+            if response.status_code == 200:
+                data = response.json()
+                balance = int(float(data.get('balance', 0)))
+        except Exception as e:
+            print(f"Error fetching balance from API: {e}")
+            balance = 0
 
         total_sent = SmsLog.query.filter(
             SmsLog.sent_by == current_user.id,
@@ -603,7 +623,7 @@ def get_sms_balance():
         ).count()
 
         return success_response('SMS balance retrieved', {
-            'balance': current_user.sms_count or 0,
+            'balance': balance,  # Real API balance
             'total_sent': total_sent,
             'sent_this_month': sent_this_month
         })
@@ -614,24 +634,43 @@ def get_sms_balance():
 
 @sms_bp.route('/balance-check', methods=['GET'])
 def get_sms_balance_noauth():
-    """Get teacher SMS balance without auth (for debugging)"""
+    """Get SMS balance from BulkSMSBD API (no auth required)"""
     try:
-        # Get Sample Teacher
+        # Get real balance from API
+        api_key = 'gsOKLO6XtKsANCvgPHNt'
+        import requests
+        
+        try:
+            params = {'api_key': api_key}
+            response = requests.get(
+                'http://bulksmsbd.net/api/getBalanceApi',
+                params=params,
+                timeout=10
+            )
+            
+            balance = 0
+            if response.status_code == 200:
+                data = response.json()
+                balance = int(float(data.get('balance', 0)))
+        except Exception as e:
+            print(f"Error fetching balance from API: {e}")
+            balance = 0
+
+        # Get Sample Teacher for stats
         teacher = User.query.filter_by(first_name='Sample', last_name='Teacher', role=UserRole.TEACHER).first()
         
-        if not teacher:
-            return error_response('Teacher not found', 404)
-
-        total_sent = SmsLog.query.filter(
-            SmsLog.sent_by == teacher.id,
-            SmsLog.status == SmsStatus.SENT
-        ).count()
+        total_sent = 0
+        if teacher:
+            total_sent = SmsLog.query.filter(
+                SmsLog.sent_by == teacher.id,
+                SmsLog.status == SmsStatus.SENT
+            ).count()
 
         return success_response('SMS balance retrieved', {
-            'balance': teacher.sms_count or 0,
+            'balance': balance,  # Real API balance
             'total_sent': total_sent,
-            'teacher_name': teacher.full_name,
-            'teacher_phone': teacher.phone
+            'teacher_name': teacher.full_name if teacher else 'N/A',
+            'teacher_phone': teacher.phone if teacher else 'N/A'
         })
 
     except Exception as e:
