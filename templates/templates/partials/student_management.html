@@ -53,94 +53,94 @@
             <p class="text-gray-600">No students found</p>
         </div>
 
-        <div x-show="!loading && filteredStudents.length > 0" class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
+        <div x-show="!loading && filteredStudents.length > 0">
+            <table class="w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student Name</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Parents Info</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone (Login)</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admission Date</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Password</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student Name</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Parents Info</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admission</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Password</th>
+                        <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     <template x-for="student in filteredStudents" :key="student.id">
                         <tr class="hover:bg-gray-50">
                             <!-- Student Name -->
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-3 py-4 whitespace-nowrap">
                                 <div class="flex items-center">
-                                    <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                                        <span class="text-blue-600 font-medium" x-text="student.firstName.charAt(0) + student.lastName.charAt(0)"></span>
+                                    <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                        <span class="text-blue-600 font-medium text-xs" x-text="student.firstName.charAt(0) + student.lastName.charAt(0)"></span>
                                     </div>
-                                    <div class="ml-4">
+                                    <div class="ml-2">
                                         <div class="text-sm font-medium text-gray-900" x-text="student.firstName + ' ' + student.lastName"></div>
                                         <div class="text-xs text-gray-500" x-text="student.school || 'No school info'"></div>
                                     </div>
                                 </div>
                             </td>
                             <!-- Parents Info -->
-                            <td class="px-6 py-4">
+                            <td class="px-3 py-4">
                                 <div class="text-sm">
-                                    <div class="font-medium text-gray-900" x-show="student.guardianName">
+                                    <div class="font-medium text-gray-900 text-xs" x-show="student.guardianName">
                                         <i class="fas fa-male text-blue-600 mr-1"></i>
                                         <span x-text="student.guardianName"></span>
                                     </div>
-                                    <div class="text-gray-700 mt-1" x-show="student.motherName">
+                                    <div class="text-gray-700 mt-1 text-xs" x-show="student.motherName">
                                         <i class="fas fa-female text-pink-600 mr-1"></i>
                                         <span x-text="student.motherName"></span>
                                     </div>
                                     <div class="text-xs text-gray-400 mt-1" x-show="!student.guardianName && !student.motherName">
-                                        No parent info
+                                        No parent
                                     </div>
                                 </div>
                             </td>
                             <!-- Parent Phone -->
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-3 py-4 whitespace-nowrap">
                                 <div class="text-sm font-medium text-gray-900" x-text="student.guardianPhone || 'No phone'"></div>
-                                <div class="text-xs text-gray-500">Login Username</div>
+                                <div class="text-xs text-gray-500">Login</div>
                             </td>
                             <!-- Admission Date -->
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm text-gray-900" x-text="student.admissionDate ? new Date(student.admissionDate).toLocaleDateString() : 'Not set'"></div>
+                            <td class="px-3 py-4 whitespace-nowrap">
+                                <div class="text-xs text-gray-900" x-text="student.admissionDate ? new Date(student.admissionDate).toLocaleDateString('en-GB') : 'Not set'"></div>
                                 <div class="text-xs text-gray-500" x-show="student.admissionDate" x-text="getDaysAgo(student.admissionDate)"></div>
                             </td>
                             <!-- Address -->
-                            <td class="px-6 py-4">
-                                <div class="text-sm text-gray-700 max-w-xs truncate" x-text="student.address || 'No address'"></div>
+                            <td class="px-3 py-4">
+                                <div class="text-xs text-gray-700 max-w-[120px] truncate" x-text="student.address || 'No address'"></div>
                             </td>
                             <!-- Batch -->
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="text-sm text-gray-900" x-text="student.batch ? student.batch.name : 'No batch'"></span>
+                            <td class="px-3 py-4 whitespace-nowrap">
+                                <span class="text-xs text-gray-900" x-text="student.batch ? student.batch.name : 'No batch'"></span>
                             </td>
                             <!-- Login Password with Show/Hide Button -->
-                            <td class="px-6 py-4 whitespace-nowrap" x-data="{ showPassword: false }">
-                                <div class="flex items-center space-x-2">
-                                    <span class="text-sm font-mono text-gray-900" 
-                                          x-text="showPassword ? (student.displayPassword || 'Not Available') : '••••••••'"></span>
+                            <td class="px-3 py-4 whitespace-nowrap" x-data="{ showPassword: false }">
+                                <div class="flex items-center space-x-1">
+                                    <span class="text-xs font-mono text-gray-900" 
+                                          x-text="showPassword ? (student.displayPassword || 'N/A') : '••••••'"></span>
                                     <button @click="showPassword = !showPassword" 
-                                            class="text-blue-600 hover:text-blue-800 text-xs bg-blue-100 hover:bg-blue-200 px-2 py-1 rounded-full transition-colors duration-200">
+                                            class="text-blue-600 hover:text-blue-800 text-xs bg-blue-100 hover:bg-blue-200 px-1.5 py-0.5 rounded-full transition-colors duration-200">
                                         <i :class="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
                                     </button>
                                 </div>
                             </td>
                             <!-- Actions -->
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <div class="flex justify-end space-x-2">
-                                    <button @click="editStudent(student)" class="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors duration-200" title="Edit Student">
-                                        <i class="fas fa-edit"></i>
+                            <td class="px-3 py-4 whitespace-nowrap text-right">
+                                <div class="flex justify-end space-x-1">
+                                    <button @click="editStudent(student)" class="bg-blue-500 hover:bg-blue-600 text-white p-1.5 rounded transition-colors" title="Edit">
+                                        <i class="fas fa-edit text-xs"></i>
                                     </button>
-                                    <button @click="resetPassword(student)" class="bg-yellow-500 hover:bg-yellow-600 text-white p-2 rounded-lg transition-colors duration-200" title="Reset Password">
-                                        <i class="fas fa-key"></i>
+                                    <button @click="resetPassword(student)" class="bg-yellow-500 hover:bg-yellow-600 text-white p-1.5 rounded transition-colors" title="Reset">
+                                        <i class="fas fa-key text-xs"></i>
                                     </button>
-                                    <button @click="archiveStudent(student)" class="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-lg transition-colors duration-200" title="Archive Student">
-                                        <i class="fas fa-archive"></i>
+                                    <button @click="archiveStudent(student)" class="bg-orange-500 hover:bg-orange-600 text-white p-1.5 rounded transition-colors" title="Archive">
+                                        <i class="fas fa-archive text-xs"></i>
                                     </button>
-                                    <button @click="deleteStudent(student)" class="bg-red-500 hover:bg-red-600 text-white p-2 rounded-lg transition-colors duration-200" title="Delete Student">
-                                        <i class="fas fa-trash"></i>
+                                    <button @click="deleteStudent(student)" class="bg-red-500 hover:bg-red-600 text-white p-1.5 rounded transition-colors" title="Delete">
+                                        <i class="fas fa-trash text-xs"></i>
                                     </button>
                                 </div>
                             </td>
