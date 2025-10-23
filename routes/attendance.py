@@ -207,6 +207,10 @@ def bulk_mark_attendance():
                         # Send SMS
                         result = send_sms_via_api(phone, message)
                         
+                        # Calculate SMS cost based on message content
+                        from routes.sms import calculate_sms_cost, deduct_sms_balance
+                        sms_cost = calculate_sms_cost(message) if result.get('success') else 0
+                        
                         # Create SMS log
                         sms_log = SmsLog(
                             user_id=student.id,
@@ -215,12 +219,14 @@ def bulk_mark_attendance():
                             status=SmsStatus.SENT if result.get('success') else SmsStatus.FAILED,
                             sent_by=current_user.id,
                             api_response=result,
-                            cost=1,
+                            cost=sms_cost,
                             sent_at=datetime.utcnow() if result.get('success') else None
                         )
                         db.session.add(sms_log)
                         
                         if result.get('success'):
+                            # Deduct from local balance
+                            deduct_sms_balance(sms_cost)
                             sms_sent += 1
                             sms_sent_numbers.append(phone)
                             # Deduct 1 SMS from teacher's balance
@@ -366,14 +372,13 @@ def bulk_mark_attendance_send_absent_sms():
                     if not phone:
                         continue
                     
-                    # Check if teacher still has SMS balance
-                    if current_user.sms_count <= 0:
-                        sms_failed += 1
-                        break
-                    
                     try:
                         # Send SMS
                         result = send_sms_via_api(phone, message)
+                        
+                        # Calculate SMS cost based on message content
+                        from routes.sms import calculate_sms_cost, deduct_sms_balance
+                        sms_cost = calculate_sms_cost(message) if result.get('success') else 0
                         
                         # Create SMS log
                         sms_log = SmsLog(
@@ -383,15 +388,15 @@ def bulk_mark_attendance_send_absent_sms():
                             status=SmsStatus.SENT if result.get('success') else SmsStatus.FAILED,
                             sent_by=current_user.id,
                             api_response=result,
-                            cost=1,
+                            cost=sms_cost,
                             sent_at=datetime.utcnow() if result.get('success') else None
                         )
                         db.session.add(sms_log)
                         
                         if result.get('success'):
+                            # Deduct from local balance
+                            deduct_sms_balance(sms_cost)
                             sms_sent += 1
-                            # Deduct 1 SMS from teacher's balance
-                            current_user.sms_count -= 1
                         else:
                             sms_failed += 1
                             

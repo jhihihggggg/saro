@@ -84,17 +84,79 @@ def get_all_templates():
 
 def count_sms_characters(text):
     """
-    Count SMS characters where Bengali characters count as 2 and English as 1
+    Count SMS characters where Bengali characters count as 2.3x English
     Bengali Unicode ranges: 0x0980-0x09FF
     """
-    count = 0
+    bengali_count = 0
+    english_count = 0
+    
     for char in text:
         # Check if character is Bengali (Unicode range 0x0980-0x09FF)
         if '\u0980' <= char <= '\u09FF':
-            count += 2  # Bengali character counts as 2
+            bengali_count += 1
         else:
-            count += 1  # English and other characters count as 1
-    return count
+            english_count += 1
+    
+    # Total weighted character count (Bengali = 2.3x English)
+    total_weighted = (bengali_count * 2.3) + english_count
+    return int(total_weighted)
+
+def calculate_sms_cost(message):
+    """
+    Calculate SMS cost based on message content:
+    - English only (120 chars = 1 SMS)
+    - Bangla only (65 chars = 1 SMS, considering 2.3x multiplier)
+    - Mixed (100 chars weighted = 1 SMS)
+    """
+    bengali_count = 0
+    english_count = 0
+    
+    for char in message:
+        if '\u0980' <= char <= '\u09FF':
+            bengali_count += 1
+        else:
+            english_count += 1
+    
+    # Determine message type
+    if bengali_count == 0:
+        # English only: 120 chars = 1 SMS
+        sms_count = max(1, (english_count + 119) // 120)
+    elif english_count == 0:
+        # Bangla only: 65 chars = 1 SMS
+        sms_count = max(1, (bengali_count + 64) // 65)
+    else:
+        # Mixed: 100 weighted chars = 1 SMS
+        weighted_total = (bengali_count * 2.3) + english_count
+        sms_count = max(1, int((weighted_total + 99) // 100))
+    
+    return sms_count
+
+def deduct_sms_balance(sms_count):
+    """Deduct SMS count from local balance in settings"""
+    try:
+        from models import Settings
+        
+        balance_setting = Settings.query.filter_by(key='sms_balance').first()
+        if not balance_setting:
+            # Initialize with default balance
+            balance_setting = Settings(
+                key='sms_balance',
+                value={'balance': 989},
+                category='sms',
+                description='Current SMS balance'
+            )
+            db.session.add(balance_setting)
+        
+        current_balance = balance_setting.value.get('balance', 0) if balance_setting.value else 0
+        new_balance = max(0, current_balance - sms_count)
+        
+        balance_setting.value = {'balance': new_balance}
+        db.session.commit()
+        
+        return new_balance
+    except Exception as e:
+        print(f"Error deducting balance: {e}")
+        return 0
 
 def validate_phone_number(phone):
     """Validate and format phone number"""
@@ -586,30 +648,26 @@ def validate_sms_message():
 @login_required
 @require_role(UserRole.TEACHER, UserRole.SUPER_USER)
 def get_sms_balance():
-    """Get current user's SMS balance from BulkSMSBD API"""
+    """Get SMS balance from local settings"""
     try:
-        current_user = get_current_user()
-
-        # Get real balance from API
-        api_key = 'gsOKLO6XtKsANCvgPHNt'
-        import requests
+        from models import Settings
         
-        try:
-            params = {'api_key': api_key}
-            response = requests.get(
-                'http://bulksmsbd.net/api/getBalanceApi',
-                params=params,
-                timeout=10
+        # Get balance from settings
+        balance_setting = Settings.query.filter_by(key='sms_balance').first()
+        if not balance_setting:
+            # Initialize with default balance
+            balance_setting = Settings(
+                key='sms_balance',
+                value={'balance': 989},
+                category='sms',
+                description='Current SMS balance'
             )
-            
-            balance = 0
-            if response.status_code == 200:
-                data = response.json()
-                balance = int(float(data.get('balance', 0)))
-        except Exception as e:
-            print(f"Error fetching balance from API: {e}")
-            balance = 0
-
+            db.session.add(balance_setting)
+            db.session.commit()
+        
+        balance = balance_setting.value.get('balance', 0) if balance_setting.value else 0
+        
+        current_user = get_current_user()
         total_sent = SmsLog.query.filter(
             SmsLog.sent_by == current_user.id,
             SmsLog.status == SmsStatus.SENT
@@ -623,7 +681,7 @@ def get_sms_balance():
         ).count()
 
         return success_response('SMS balance retrieved', {
-            'balance': balance,  # Real API balance
+            'balance': balance,
             'total_sent': total_sent,
             'sent_this_month': sent_this_month
         })
@@ -634,27 +692,24 @@ def get_sms_balance():
 
 @sms_bp.route('/balance-check', methods=['GET'])
 def get_sms_balance_noauth():
-    """Get SMS balance from BulkSMSBD API (no auth required)"""
+    """Get SMS balance from local settings (no auth required)"""
     try:
-        # Get real balance from API
-        api_key = 'gsOKLO6XtKsANCvgPHNt'
-        import requests
+        from models import Settings
         
-        try:
-            params = {'api_key': api_key}
-            response = requests.get(
-                'http://bulksmsbd.net/api/getBalanceApi',
-                params=params,
-                timeout=10
+        # Get balance from settings
+        balance_setting = Settings.query.filter_by(key='sms_balance').first()
+        if not balance_setting:
+            # Initialize with default balance
+            balance_setting = Settings(
+                key='sms_balance',
+                value={'balance': 989},
+                category='sms',
+                description='Current SMS balance'
             )
-            
-            balance = 0
-            if response.status_code == 200:
-                data = response.json()
-                balance = int(float(data.get('balance', 0)))
-        except Exception as e:
-            print(f"Error fetching balance from API: {e}")
-            balance = 0
+            db.session.add(balance_setting)
+            db.session.commit()
+        
+        balance = balance_setting.value.get('balance', 0) if balance_setting.value else 0
 
         # Get Sample Teacher for stats
         teacher = User.query.filter_by(first_name='Sample', last_name='Teacher', role=UserRole.TEACHER).first()
@@ -667,7 +722,7 @@ def get_sms_balance_noauth():
             ).count()
 
         return success_response('SMS balance retrieved', {
-            'balance': balance,  # Real API balance
+            'balance': balance,
             'total_sent': total_sent,
             'teacher_name': teacher.full_name if teacher else 'N/A',
             'teacher_phone': teacher.phone if teacher else 'N/A'
@@ -976,6 +1031,9 @@ def send_bulk_sms():
                 sms_response = send_sms_via_api(phone, message_to_send)
 
                 if sms_response.get('success'):
+                    # Calculate SMS cost based on message content
+                    sms_cost = calculate_sms_cost(message_to_send)
+                    
                     sms_log = SmsLog(
                         user_id=student.id,
                         phone_number=phone,
@@ -983,11 +1041,13 @@ def send_bulk_sms():
                         status=SmsStatus.SENT,
                         api_response=sms_response,
                         sent_by=current_user.id,
-                        cost=1,
+                        cost=sms_cost,
                         sent_at=datetime.utcnow()
                     )
                     db.session.add(sms_log)
-                    current_user.sms_count = (current_user.sms_count or 0) - 1
+                    
+                    # Deduct from local balance
+                    deduct_sms_balance(sms_cost)
                     sent_count += 1
                 else:
                     sms_log = SmsLog(
@@ -1133,6 +1193,9 @@ def send_bulk_sms_noauth():
                 sms_response = send_sms_via_api(phone, message_to_send)
 
                 if sms_response.get('success'):
+                    # Calculate SMS cost based on message content
+                    sms_cost = calculate_sms_cost(message_to_send)
+                    
                     sms_log = SmsLog(
                         user_id=student.id,
                         phone_number=phone,
@@ -1140,11 +1203,13 @@ def send_bulk_sms_noauth():
                         status=SmsStatus.SENT,
                         api_response=sms_response,
                         sent_by=current_user.id,
-                        cost=1,
+                        cost=sms_cost,
                         sent_at=datetime.utcnow()
                     )
                     db.session.add(sms_log)
-                    current_user.sms_count = (current_user.sms_count or 0) - 1
+                    
+                    # Deduct from local balance
+                    deduct_sms_balance(sms_cost)
                     sent_count += 1
                 else:
                     sms_log = SmsLog(
