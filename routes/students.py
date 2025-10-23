@@ -234,6 +234,7 @@ def create_student():
             guardian_name=data.get('guardianName', '').strip() if data.get('guardianName') else None,
             mother_name=data.get('motherName', '').strip() if data.get('motherName') else None,
             emergency_contact=data.get('emergencyContact', '').strip() if data.get('emergencyContact') else None,
+            admission_date=datetime.strptime(data['admissionDate'], '%Y-%m-%d').date() if data.get('admissionDate') else None,
             is_active=data.get('isActive', True)
         )
         
@@ -372,6 +373,12 @@ def update_student(student_id):
         
         if 'emergencyContact' in data:
             student.emergency_contact = data['emergencyContact'].strip() if data['emergencyContact'] else None
+        
+        if 'admissionDate' in data and data['admissionDate']:
+            try:
+                student.admission_date = datetime.strptime(data['admissionDate'], '%Y-%m-%d').date()
+            except ValueError:
+                return error_response('Invalid admission date format. Use YYYY-MM-DD', 400)
         
         if 'isActive' in data:
             student.is_active = data['isActive']

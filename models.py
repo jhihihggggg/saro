@@ -80,6 +80,7 @@ class User(db.Model):
     guardian_phone = db.Column(db.String(20), nullable=True)
     mother_name = db.Column(db.String(200), nullable=True)
     emergency_contact = db.Column(db.String(20), nullable=True)
+    admission_date = db.Column(db.Date, nullable=True)  # New field for student admission date
     sms_count = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True)
     last_login = db.Column(db.DateTime, nullable=True)
