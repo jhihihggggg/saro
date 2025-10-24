@@ -6,7 +6,7 @@ echo "🔧 Updating service to use smartgardenhub.db..."
 # Stop the service
 sudo systemctl stop saro
 
-# Create service file with DATABASE_URL
+# Create service file with DATABASE_URL (absolute path with 4 slashes)
 sudo tee /etc/systemd/system/saro.service > /dev/null << 'EOF'
 [Unit]
 Description=Saro Student Management System
@@ -17,7 +17,7 @@ Type=exec
 User=root
 WorkingDirectory=/var/www/saroyarsir
 Environment="PATH=/var/www/saroyarsir/venv/bin:/usr/local/bin:/usr/bin:/bin"
-Environment="DATABASE_URL=sqlite:///instance/smartgardenhub.db"
+Environment="DATABASE_URL=sqlite:////var/www/saroyarsir/instance/smartgardenhub.db"
 ExecStart=/var/www/saroyarsir/venv/bin/gunicorn --workers 4 --bind 0.0.0.0:8001 --timeout 120 --access-logfile - --error-logfile - wsgi:app
 Restart=always
 RestartSec=10
@@ -28,7 +28,7 @@ StandardError=journal
 WantedBy=multi-user.target
 EOF
 
-echo "✅ Service file updated with DATABASE_URL"
+echo "✅ Service file updated with absolute DATABASE_URL"
 
 # Reload systemd
 sudo systemctl daemon-reload
