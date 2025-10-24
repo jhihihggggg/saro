@@ -5,7 +5,7 @@ echo "🔄 Quick Database Copy"
 echo "====================="
 
 SOURCE_DB="/var/www/madrasha/instance/saro.db"
-DEST_DB="/var/www/saroyarsir/instance/saro.db"
+DEST_DB="/var/www/saroyarsir/instance/smartgardenhub.db"
 BACKUP_DIR="/var/www/saroyarsir/backups"
 
 # Create backups and instance directory
@@ -70,5 +70,6 @@ else
     echo ""
     echo "To copy manually:"
     echo "sudo cp /path/to/old/saro.db $DEST_DB"
+    echo "bash update_database_name.sh"
     echo "sudo systemctl restart saro"
 fi
